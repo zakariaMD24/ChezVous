@@ -3,45 +3,53 @@ package com.example.chezvous
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.*
+import com.example.chezvous.presentation.auth.AuthScreenState
+import com.example.chezvous.presentation.auth.LoginScreen
+import com.example.chezvous.presentation.auth.RegisterScreen
+import com.example.chezvous.presentation.home.HomeScreen
 import com.example.chezvous.ui.theme.ChezVousTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
         setContent {
             ChezVousTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                var currentScreen by remember {
+                    mutableStateOf(AuthScreenState.LOGIN)
+                }
+
+                when (currentScreen) {
+                    AuthScreenState.LOGIN -> {
+                        LoginScreen(
+                            onLoginSuccess = {
+                                currentScreen = AuthScreenState.HOME
+                            },
+                            onGoToRegister = {
+                                currentScreen = AuthScreenState.REGISTER
+                            }
+                        )
+                    }
+
+                    AuthScreenState.REGISTER -> {
+                        RegisterScreen(
+                            onRegisterSuccess = {
+                                currentScreen = AuthScreenState.HOME
+                            },
+                            onGoToLogin = {
+                                currentScreen = AuthScreenState.LOGIN
+                            }
+                        )
+                    }
+
+                    AuthScreenState.HOME -> {
+                        HomeScreen()
+                    }
+
+                    else -> {}
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    ChezVousTheme {
-        Greeting("Android")
     }
 }

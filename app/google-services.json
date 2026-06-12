@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "384186651526",
+    "project_id": "chezvous7",
+    "storage_bucket": "chezvous7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:384186651526:android:b455f87a88b039c6ded207",
+        "android_client_info": {
+          "package_name": "com.example.chezvous"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_lvGiIuplr9jKoZQa9B3qriuzCI5tDl4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
