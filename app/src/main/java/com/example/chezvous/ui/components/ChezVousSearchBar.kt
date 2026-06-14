@@ -14,12 +14,13 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ChezVousSearchBar(
     value: String,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
+    placeholder: String = "Rechercher un restaurant"
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        placeholder = { Text("Rechercher un restaurant") },
+        placeholder = { Text(placeholder) },
         leadingIcon = {
             Icon(
                 imageVector = Icons.Outlined.Search,

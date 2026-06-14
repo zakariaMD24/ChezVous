@@ -45,14 +45,17 @@ android {
 
 dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation("androidx.compose.material:material-icons-extended")
-    // Your defined Compose / ViewModel bundles
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
 
     // Compose BOM & Core
     implementation(platform(libs.androidx.compose.bom))

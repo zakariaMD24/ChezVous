@@ -12,7 +12,20 @@
           "package_name": "com.example.chezvous"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "384186651526-u2g866ob9o9celdp90h8367pu3qvbg5e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.chezvous",
+            "certificate_hash": "93973cc0d31844c28b9ffab4ef4377f93337cc42"
+          }
+        },
+        {
+          "client_id": "384186651526-vf2j3e1su4mrohumgvdttlqc9542vsi0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA_lvGiIuplr9jKoZQa9B3qriuzCI5tDl4"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "384186651526-vf2j3e1su4mrohumgvdttlqc9542vsi0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

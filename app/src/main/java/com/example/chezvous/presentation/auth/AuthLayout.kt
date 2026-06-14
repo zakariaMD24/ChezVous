@@ -2,6 +2,8 @@ package com.example.chezvous.presentation.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -15,11 +17,14 @@ import com.example.chezvous.R
 import com.example.chezvous.ui.components.ChezVousButton
 import com.example.chezvous.ui.components.ChezVousEmailField
 import com.example.chezvous.ui.components.ChezVousPasswordField
+import com.example.chezvous.ui.components.ChezVousTextField
+import com.example.chezvous.ui.components.GoogleSignInButton
 
 @Composable
 fun AuthLayout(
     title: String,
     subtitle: String,
+    fullName: String? = null,
     email: String,
     password: String,
     showPassword: Boolean,
@@ -28,13 +33,19 @@ fun AuthLayout(
     mainButtonText: String,
     loadingText: String,
     switchText: String,
+    onFullNameChange: ((String) -> Unit)? = null,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onTogglePassword: () -> Unit,
     onMainClick: () -> Unit,
-    onSwitchClick: () -> Unit
+    onSwitchClick: () -> Unit,
+    onGoogleClick: (() -> Unit)? = null
 ) {
-    val canSubmit = email.isNotBlank() && password.length >= 6 && !isLoading
+    val requiresFullName = fullName != null
+    val canSubmit = email.isNotBlank() &&
+            password.length >= 6 &&
+            (!requiresFullName || !fullName.isNullOrBlank()) &&
+            !isLoading
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -71,6 +82,17 @@ fun AuthLayout(
 
             Spacer(modifier = Modifier.height(18.dp))
 
+            if (fullName != null && onFullNameChange != null) {
+                ChezVousTextField(
+                    value = fullName,
+                    onValueChange = onFullNameChange,
+                    label = "Nom complet",
+                    leadingIcon = Icons.Outlined.Person
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             ChezVousEmailField(
                 value = email,
                 onValueChange = onEmailChange
@@ -105,6 +127,15 @@ fun AuthLayout(
                 enabled = canSubmit,
                 onClick = onMainClick
             )
+
+            if (onGoogleClick != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                GoogleSignInButton(
+                    enabled = !isLoading,
+                    onClick = onGoogleClick
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 

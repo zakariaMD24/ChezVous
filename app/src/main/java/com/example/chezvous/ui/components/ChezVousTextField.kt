@@ -5,31 +5,59 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+
+@Composable
+fun ChezVousTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Next,
+    singleLine: Boolean = true,
+    enabled: Boolean = true
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        leadingIcon = leadingIcon?.let { icon ->
+            {
+                Icon(icon, contentDescription = null)
+            }
+        },
+        singleLine = singleLine,
+        enabled = enabled,
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = imeAction
+        )
+    )
+}
 
 @Composable
 fun ChezVousEmailField(
     value: String,
     onValueChange: (String) -> Unit
 ) {
-    OutlinedTextField(
+    ChezVousTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text("Adresse email") },
-        leadingIcon = {
-            Icon(Icons.Outlined.Email, contentDescription = null)
-        },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Email,
-            imeAction = ImeAction.Next
-        )
+        label = "Adresse email",
+        leadingIcon = Icons.Outlined.Email,
+        keyboardType = KeyboardType.Email,
+        imeAction = ImeAction.Next
     )
 }

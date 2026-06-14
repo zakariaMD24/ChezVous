@@ -1,23 +1,13 @@
 package com.example.chezvous.presentation.auth
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.*
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.chezvous.R
 
 @Composable
 fun LoginScreen(
@@ -30,6 +20,10 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
+    val onGoogleClick = rememberGoogleSignInHandler(
+        onIdToken = viewModel::loginWithGoogle,
+        onError = viewModel::showError
+    )
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) onLoginSuccess()
@@ -45,11 +39,12 @@ fun LoginScreen(
         errorMessage = uiState.errorMessage,
         mainButtonText = "Se connecter",
         loadingText = "Connexion...",
-        switchText = "Créer un compte",
+        switchText = "Creer un compte",
         onEmailChange = { email = it },
         onPasswordChange = { password = it },
         onTogglePassword = { showPassword = !showPassword },
         onMainClick = { viewModel.login(email.trim(), password) },
-        onSwitchClick = onGoToRegister
+        onSwitchClick = onGoToRegister,
+        onGoogleClick = onGoogleClick
     )
 }

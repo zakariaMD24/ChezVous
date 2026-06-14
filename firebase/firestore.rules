@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function hasUserProfile() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasRole(role) {
+      return hasUserProfile()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    function isPartnerOrAdmin() {
+      return hasRole("PARTNER") || hasRole("ADMIN");
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId);
+      allow read, update: if isOwner(userId) || hasRole("ADMIN");
+      allow delete: if hasRole("ADMIN");
+    }
+
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow create, update, delete: if isPartnerOrAdmin();
+    }
+
+    match /menuItems/{menuItemId} {
+      allow read: if true;
+      allow create, update, delete: if isPartnerOrAdmin();
+    }
+
+    match /drivers/{driverId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isPartnerOrAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      allow read: if isSignedIn()
+        && (resource.data.userId == request.auth.uid || isPartnerOrAdmin());
+
+      allow update: if isSignedIn()
+        && (
+          (
+            resource.data.userId == request.auth.uid
+            && request.resource.data.status == "CANCELLED"
+            && resource.data.status in ["PENDING", "CONFIRMED"]
+          )
+          || isPartnerOrAdmin()
+        );
+
+      allow delete: if hasRole("ADMIN");
+    }
+  }
+}

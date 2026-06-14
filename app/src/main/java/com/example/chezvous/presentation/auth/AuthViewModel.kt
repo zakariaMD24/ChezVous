@@ -34,11 +34,11 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun register(email: String, password: String) {
+    fun register(fullName: String, email: String, password: String) {
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
 
-            val result = repository.register(email, password)
+            val result = repository.register(fullName, email, password)
 
             _uiState.value = if (result.isSuccess) {
                 AuthUiState(isSuccess = true)
@@ -46,5 +46,23 @@ class AuthViewModel : ViewModel() {
                 AuthUiState(errorMessage = result.exceptionOrNull()?.message)
             }
         }
+    }
+
+    fun loginWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState(isLoading = true)
+
+            val result = repository.loginWithGoogle(idToken)
+
+            _uiState.value = if (result.isSuccess) {
+                AuthUiState(isSuccess = true)
+            } else {
+                AuthUiState(errorMessage = result.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun showError(message: String) {
+        _uiState.value = AuthUiState(errorMessage = message)
     }
 }
