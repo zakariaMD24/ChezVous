@@ -51,26 +51,24 @@ class CartViewModel : ViewModel() {
         }
     }
 
-    fun increaseQuantity(foodItemId: String) {
-        CartRepository.increaseQuantity(foodItemId)
+    fun increaseQuantity(lineId: String) {
+        CartRepository.increaseQuantity(lineId)
     }
 
-    fun decreaseQuantity(foodItemId: String) {
-        CartRepository.decreaseQuantity(foodItemId)
+    fun decreaseQuantity(lineId: String) {
+        CartRepository.decreaseQuantity(lineId)
     }
 
-    fun removeItem(foodItemId: String) {
-        CartRepository.removeItem(foodItemId)
+    fun removeItem(lineId: String) {
+        CartRepository.removeItem(lineId)
+    }
+
+    fun updateSpecialInstruction(lineId: String, instruction: String) {
+        CartRepository.updateSpecialInstruction(lineId, instruction)
     }
 
     fun clearCart() {
         CartRepository.clearCart()
-    }
-
-    fun onCheckoutClick() {
-        _uiState.update {
-            it.copy(message = "Le paiement sera ajoute dans la phase suivante.")
-        }
     }
 
     fun clearMessage() {

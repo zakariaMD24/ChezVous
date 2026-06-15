@@ -1,10 +1,97 @@
 package com.example.chezvous.data.local
 
 import com.example.chezvous.data.model.Driver
+import com.example.chezvous.data.model.CustomizationOption
 import com.example.chezvous.data.model.FoodItem
 import com.example.chezvous.data.model.Restaurant
 
 object FakeFoodData {
+    private const val BURGER_IMAGE =
+        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80"
+    private const val PIZZA_IMAGE =
+        "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=900&q=80"
+    private const val BOWL_IMAGE =
+        "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80"
+    private const val DRINK_IMAGE =
+        "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=900&q=80"
+    private const val EGG_IMAGE =
+        "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=500&q=80"
+    private const val CHEESE_IMAGE =
+        "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=500&q=80"
+    private const val PROTEIN_IMAGE =
+        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=500&q=80"
+    private const val SAUCE_IMAGE =
+        "https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&w=500&q=80"
+    private const val TOMATO_IMAGE =
+        "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=500&q=80"
+    private const val ONION_IMAGE =
+        "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=500&q=80"
+    private const val SALAD_IMAGE =
+        "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=500&q=80"
+    private const val LEMON_IMAGE =
+        "https://images.unsplash.com/photo-1587324438673-56c78a866b15?auto=format&fit=crop&w=500&q=80"
+    private const val ICE_IMAGE =
+        "https://images.unsplash.com/photo-1514846326710-096e4a8035e0?auto=format&fit=crop&w=500&q=80"
+    private const val CHILI_IMAGE =
+        "https://images.unsplash.com/photo-1583119022894-919a68a3d0e3?auto=format&fit=crop&w=500&q=80"
+
+    private val burgerExtras = listOf(
+        CustomizationOption(id = "egg", name = "Oeuf", price = 5.0, imageUrl = EGG_IMAGE),
+        CustomizationOption(id = "cheese", name = "Fromage", price = 6.0, imageUrl = CHEESE_IMAGE),
+        CustomizationOption(id = "protein", name = "Protein extra", price = 12.0, imageUrl = PROTEIN_IMAGE),
+        CustomizationOption(id = "sauce", name = "Sauce extra", price = 3.0, imageUrl = SAUCE_IMAGE)
+    )
+    private val burgerRemovableOptions = listOf(
+        CustomizationOption(id = "tomato", name = "Tomate", imageUrl = TOMATO_IMAGE),
+        CustomizationOption(id = "onion", name = "Oignon", imageUrl = ONION_IMAGE),
+        CustomizationOption(id = "sauce", name = "Sauce", imageUrl = SAUCE_IMAGE),
+        CustomizationOption(id = "salad", name = "Salade", imageUrl = SALAD_IMAGE),
+        CustomizationOption(id = "cheese", name = "Fromage", imageUrl = CHEESE_IMAGE)
+    )
+    private val burgerRemovables = burgerRemovableOptions.map { it.name }
+    private val spiceLevelOptions = listOf(
+        CustomizationOption(
+            id = "none",
+            name = "Sans",
+            imageUrl = "",
+            description = "Aucun piquant"
+        ),
+        CustomizationOption(
+            id = "mild",
+            name = "Doux",
+            imageUrl = CHILI_IMAGE,
+            description = "Leger et agreable"
+        ),
+        CustomizationOption(
+            id = "medium",
+            name = "Moyen",
+            imageUrl = CHILI_IMAGE,
+            description = "Equilibre"
+        ),
+        CustomizationOption(
+            id = "hot",
+            name = "Fort",
+            imageUrl = CHILI_IMAGE,
+            description = "Ca commence a piquer"
+        ),
+        CustomizationOption(
+            id = "very-spicy",
+            name = "Tres fort",
+            imageUrl = CHILI_IMAGE,
+            description = "Pour les amateurs de piquant"
+        )
+    )
+    private val spiceLevels = spiceLevelOptions.map { it.name }
+    private val drinkExtras = listOf(
+        CustomizationOption(id = "ice", name = "Glacons", price = 0.0, imageUrl = ICE_IMAGE),
+        CustomizationOption(id = "lemon", name = "Citron", price = 2.0, imageUrl = LEMON_IMAGE)
+    )
+    private val drinkRemovableOptions = listOf(
+        CustomizationOption(id = "ice", name = "Glacons", imageUrl = ICE_IMAGE),
+        CustomizationOption(id = "lemon", name = "Citron", imageUrl = LEMON_IMAGE)
+    )
+    private val drinkRemovables = drinkRemovableOptions.map { it.name }
+
     val restaurants = listOf(
         Restaurant(
             id = "burger-house",
@@ -39,7 +126,13 @@ object FakeFoodData {
             name = "Classic Burger",
             description = "Burger boeuf, fromage, salade et sauce maison.",
             price = 45.0,
-            category = "Burgers"
+            category = "Burgers",
+            imageUrl = BURGER_IMAGE,
+            extraOptions = burgerExtras,
+            removableIngredients = burgerRemovables,
+            spiceLevels = spiceLevels,
+            removableIngredientOptions = burgerRemovableOptions,
+            spiceLevelOptions = spiceLevelOptions
         ),
         FoodItem(
             id = "chicken-burger",
@@ -47,7 +140,13 @@ object FakeFoodData {
             name = "Chicken Burger",
             description = "Poulet croustillant, cheddar et sauce ChezVous.",
             price = 42.0,
-            category = "Burgers"
+            category = "Burgers",
+            imageUrl = BURGER_IMAGE,
+            extraOptions = burgerExtras,
+            removableIngredients = burgerRemovables,
+            spiceLevels = spiceLevels,
+            removableIngredientOptions = burgerRemovableOptions,
+            spiceLevelOptions = spiceLevelOptions
         ),
         FoodItem(
             id = "margherita",
@@ -55,7 +154,21 @@ object FakeFoodData {
             name = "Pizza Margherita",
             description = "Tomate, mozzarella et basilic.",
             price = 55.0,
-            category = "Pizzas"
+            category = "Pizzas",
+            imageUrl = PIZZA_IMAGE,
+            extraOptions = listOf(
+                CustomizationOption(id = "cheese", name = "Fromage extra", price = 8.0, imageUrl = CHEESE_IMAGE),
+                CustomizationOption(id = "egg", name = "Oeuf", price = 5.0, imageUrl = EGG_IMAGE),
+                CustomizationOption(id = "sauce", name = "Sauce piquante", price = 3.0, imageUrl = SAUCE_IMAGE)
+            ),
+            removableIngredients = listOf("Tomate", "Mozzarella", "Basilic"),
+            spiceLevels = spiceLevels,
+            removableIngredientOptions = listOf(
+                CustomizationOption(id = "tomato", name = "Tomate", imageUrl = TOMATO_IMAGE),
+                CustomizationOption(id = "mozzarella", name = "Mozzarella", imageUrl = CHEESE_IMAGE),
+                CustomizationOption(id = "basil", name = "Basilic", imageUrl = SALAD_IMAGE)
+            ),
+            spiceLevelOptions = spiceLevelOptions
         ),
         FoodItem(
             id = "pepperoni",
@@ -63,7 +176,21 @@ object FakeFoodData {
             name = "Pizza Pepperoni",
             description = "Mozzarella, pepperoni et sauce tomate.",
             price = 68.0,
-            category = "Pizzas"
+            category = "Pizzas",
+            imageUrl = PIZZA_IMAGE,
+            extraOptions = listOf(
+                CustomizationOption(id = "cheese", name = "Fromage extra", price = 8.0, imageUrl = CHEESE_IMAGE),
+                CustomizationOption(id = "pepperoni", name = "Pepperoni extra", price = 10.0, imageUrl = PROTEIN_IMAGE),
+                CustomizationOption(id = "sauce", name = "Sauce piquante", price = 3.0, imageUrl = SAUCE_IMAGE)
+            ),
+            removableIngredients = listOf("Pepperoni", "Mozzarella", "Sauce tomate"),
+            spiceLevels = spiceLevels,
+            removableIngredientOptions = listOf(
+                CustomizationOption(id = "pepperoni", name = "Pepperoni", imageUrl = PROTEIN_IMAGE),
+                CustomizationOption(id = "mozzarella", name = "Mozzarella", imageUrl = CHEESE_IMAGE),
+                CustomizationOption(id = "tomato-sauce", name = "Sauce tomate", imageUrl = SAUCE_IMAGE)
+            ),
+            spiceLevelOptions = spiceLevelOptions
         ),
         FoodItem(
             id = "salmon-bowl",
@@ -71,7 +198,21 @@ object FakeFoodData {
             name = "Salmon Bowl",
             description = "Riz, saumon, avocat, legumes et sauce soja.",
             price = 72.0,
-            category = "Bowls"
+            category = "Bowls",
+            imageUrl = BOWL_IMAGE,
+            extraOptions = listOf(
+                CustomizationOption(id = "egg", name = "Oeuf", price = 5.0, imageUrl = EGG_IMAGE),
+                CustomizationOption(id = "salmon", name = "Saumon extra", price = 18.0, imageUrl = PROTEIN_IMAGE),
+                CustomizationOption(id = "avocado", name = "Avocat extra", price = 8.0, imageUrl = BOWL_IMAGE)
+            ),
+            removableIngredients = listOf("Avocat", "Legumes", "Sauce soja"),
+            spiceLevels = spiceLevels,
+            removableIngredientOptions = listOf(
+                CustomizationOption(id = "avocado", name = "Avocat", imageUrl = BOWL_IMAGE),
+                CustomizationOption(id = "vegetables", name = "Legumes", imageUrl = SALAD_IMAGE),
+                CustomizationOption(id = "soy-sauce", name = "Sauce soja", imageUrl = SAUCE_IMAGE)
+            ),
+            spiceLevelOptions = spiceLevelOptions
         ),
         FoodItem(
             id = "veggie-bowl",
@@ -79,7 +220,57 @@ object FakeFoodData {
             name = "Veggie Bowl",
             description = "Quinoa, pois chiches, avocat et legumes frais.",
             price = 58.0,
-            category = "Bowls"
+            category = "Bowls",
+            imageUrl = BOWL_IMAGE,
+            extraOptions = listOf(
+                CustomizationOption(id = "egg", name = "Oeuf", price = 5.0, imageUrl = EGG_IMAGE),
+                CustomizationOption(id = "chickpeas", name = "Pois chiches extra", price = 6.0, imageUrl = PROTEIN_IMAGE),
+                CustomizationOption(id = "avocado", name = "Avocat extra", price = 8.0, imageUrl = BOWL_IMAGE)
+            ),
+            removableIngredients = listOf("Avocat", "Pois chiches", "Legumes"),
+            spiceLevels = spiceLevels,
+            removableIngredientOptions = listOf(
+                CustomizationOption(id = "avocado", name = "Avocat", imageUrl = BOWL_IMAGE),
+                CustomizationOption(id = "chickpeas", name = "Pois chiches", imageUrl = PROTEIN_IMAGE),
+                CustomizationOption(id = "vegetables", name = "Legumes", imageUrl = SALAD_IMAGE)
+            ),
+            spiceLevelOptions = spiceLevelOptions
+        ),
+        FoodItem(
+            id = "coca-cola",
+            restaurantId = "burger-house",
+            name = "Coca-Cola",
+            description = "Boisson fraiche 33cl.",
+            price = 10.0,
+            category = "Boissons",
+            imageUrl = DRINK_IMAGE,
+            extraOptions = drinkExtras,
+            removableIngredients = drinkRemovables,
+            removableIngredientOptions = drinkRemovableOptions
+        ),
+        FoodItem(
+            id = "eau-minerale",
+            restaurantId = "healthy-bowl",
+            name = "Eau minerale",
+            description = "Bouteille d'eau 50cl.",
+            price = 8.0,
+            category = "Boissons",
+            imageUrl = DRINK_IMAGE,
+            extraOptions = drinkExtras,
+            removableIngredients = drinkRemovables,
+            removableIngredientOptions = drinkRemovableOptions
+        ),
+        FoodItem(
+            id = "sprite",
+            restaurantId = "casa-pizza",
+            name = "Sprite",
+            description = "Boisson gazeuse 33cl.",
+            price = 10.0,
+            category = "Boissons",
+            imageUrl = DRINK_IMAGE,
+            extraOptions = drinkExtras,
+            removableIngredients = drinkRemovables,
+            removableIngredientOptions = drinkRemovableOptions
         )
     )
 

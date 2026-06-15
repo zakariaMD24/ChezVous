@@ -4,17 +4,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddShoppingCart
-import androidx.compose.material.icons.outlined.Restaurant
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,10 +18,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.chezvous.R
 import com.example.chezvous.data.model.FoodItem
+import com.example.chezvous.ui.theme.ChezVousSize
+import com.example.chezvous.ui.theme.ChezVousSpacing
 
 @Composable
 fun FoodItemCard(
@@ -34,20 +32,13 @@ fun FoodItemCard(
     modifier: Modifier = Modifier,
     onAddClick: (() -> Unit)? = null
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+    ChezVousCard(modifier = modifier) {
         Row(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(ChezVousSpacing.md)
         ) {
             FoodItemImage(foodItem = foodItem)
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(ChezVousSpacing.md))
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -67,7 +58,7 @@ fun FoodItemCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xxs))
 
                 Text(
                     text = foodItem.description,
@@ -75,7 +66,7 @@ fun FoodItemCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xs))
 
                 Row {
                     Text(
@@ -86,7 +77,11 @@ fun FoodItemCard(
                     )
 
                     Text(
-                        text = if (foodItem.isAvailable) "Disponible" else "Indisponible",
+                        text = if (foodItem.isAvailable) {
+                            stringResource(R.string.available)
+                        } else {
+                            stringResource(R.string.unavailable)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (foodItem.isAvailable) {
                             MaterialTheme.colorScheme.primary
@@ -97,23 +92,27 @@ fun FoodItemCard(
                 }
 
                 if (onAddClick != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
 
                     FilledTonalButton(
                         onClick = onAddClick,
                         enabled = foodItem.isAvailable,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.AddShoppingCart,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(ChezVousSize.iconMd)
                         )
 
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(ChezVousSpacing.xs))
 
                         Text(
-                            text = if (foodItem.isAvailable) "Ajouter" else "Indisponible"
+                            text = if (foodItem.isAvailable) {
+                                stringResource(R.string.customize)
+                            } else {
+                                stringResource(R.string.unavailable)
+                            }
                         )
                     }
                 }
@@ -125,24 +124,15 @@ fun FoodItemCard(
 @Composable
 private fun FoodItemImage(foodItem: FoodItem) {
     Surface(
-        modifier = Modifier.size(82.dp),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.primaryContainer
+        modifier = Modifier.size(ChezVousSize.imageLg),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer
     ) {
-        if (foodItem.imageUrl.isNotBlank()) {
-            AsyncImage(
-                model = foodItem.imageUrl,
-                contentDescription = foodItem.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Outlined.Restaurant,
-                contentDescription = null,
-                modifier = Modifier.padding(22.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
+        AsyncImage(
+            model = foodItem.displayFoodImageUrl(),
+            contentDescription = foodItem.name,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }

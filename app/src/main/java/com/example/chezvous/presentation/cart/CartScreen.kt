@@ -11,17 +11,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.RemoveShoppingCart
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -33,11 +29,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chezvous.ui.components.CartItemCard
 import com.example.chezvous.ui.components.CartSummaryCard
+import com.example.chezvous.ui.components.ChezVousTopBar
 import com.example.chezvous.ui.components.SectionTitle
 import com.example.chezvous.ui.components.asDhPrice
+import com.example.chezvous.ui.components.chezVousScreenPadding
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CartScreen(
     onBack: () -> Unit,
@@ -55,13 +52,9 @@ fun CartScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Panier") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, contentDescription = "Retour")
-                    }
-                },
+            ChezVousTopBar(
+                title = "Panier",
+                onBack = onBack,
                 actions = {
                     if (!uiState.isEmpty) {
                         TextButton(onClick = viewModel::clearCart) {
@@ -84,7 +77,7 @@ fun CartScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 20.dp),
+                    .chezVousScreenPadding(),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
@@ -100,13 +93,19 @@ fun CartScreen(
                     CartItemCard(
                         cartItem = cartItem,
                         onIncrease = {
-                            viewModel.increaseQuantity(cartItem.foodItem.id)
+                            viewModel.increaseQuantity(cartItem.lineId)
                         },
                         onDecrease = {
-                            viewModel.decreaseQuantity(cartItem.foodItem.id)
+                            viewModel.decreaseQuantity(cartItem.lineId)
                         },
                         onRemove = {
-                            viewModel.removeItem(cartItem.foodItem.id)
+                            viewModel.removeItem(cartItem.lineId)
+                        },
+                        onInstructionChange = { instruction ->
+                            viewModel.updateSpecialInstruction(
+                                lineId = cartItem.lineId,
+                                instruction = instruction
+                            )
                         }
                     )
                 }
@@ -120,7 +119,6 @@ fun CartScreen(
                         remainingForMinimum = uiState.remainingForMinimum,
                         canCheckout = uiState.canCheckout,
                         onCheckout = {
-                            viewModel.onCheckoutClick()
                             onCheckoutReady()
                         }
                     )

@@ -1,6 +1,7 @@
 package com.example.chezvous.data.repository
 
 import com.example.chezvous.data.model.CartItem
+import com.example.chezvous.data.model.CustomizationOption
 import com.example.chezvous.data.model.FoodItem
 import com.example.chezvous.data.model.Restaurant
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +22,14 @@ object CartRepository {
     private val _restaurant = MutableStateFlow<Restaurant?>(null)
     val restaurant: StateFlow<Restaurant?> = _restaurant.asStateFlow()
 
-    fun addItem(foodItem: FoodItem, restaurant: Restaurant): CartActionResult {
+    fun addItem(
+        foodItem: FoodItem,
+        restaurant: Restaurant,
+        selectedExtras: List<CustomizationOption> = emptyList(),
+        removedIngredients: List<String> = emptyList(),
+        spiceLevel: String = "",
+        specialInstruction: String = ""
+    ): CartActionResult {
         if (!foodItem.isAvailable) {
             return CartActionResult.Error("Ce plat n'est pas disponible.")
         }
@@ -34,12 +42,27 @@ object CartRepository {
         }
 
         _restaurant.value = restaurant
-        val existingItem = _cartItems.value.firstOrNull { it.foodItem.id == foodItem.id }
+        val lineId = buildCartLineId(
+            foodItem = foodItem,
+            selectedExtras = selectedExtras,
+            removedIngredients = removedIngredients,
+            spiceLevel = spiceLevel,
+            specialInstruction = specialInstruction
+        )
+        val existingItem = _cartItems.value.firstOrNull { it.lineId == lineId }
         _cartItems.value = if (existingItem == null) {
-            _cartItems.value + CartItem(foodItem = foodItem, quantity = 1)
+            _cartItems.value + CartItem(
+                lineId = lineId,
+                foodItem = foodItem,
+                quantity = 1,
+                selectedExtras = selectedExtras,
+                removedIngredients = removedIngredients,
+                spiceLevel = spiceLevel,
+                specialInstruction = specialInstruction.take(120)
+            )
         } else {
             _cartItems.value.map { item ->
-                if (item.foodItem.id == foodItem.id) {
+                if (item.lineId == lineId) {
                     item.copy(quantity = item.quantity + 1)
                 } else {
                     item
@@ -50,9 +73,9 @@ object CartRepository {
         return CartActionResult.Success("${foodItem.name} ajoute au panier.")
     }
 
-    fun increaseQuantity(foodItemId: String) {
+    fun increaseQuantity(lineId: String) {
         _cartItems.value = _cartItems.value.map { item ->
-            if (item.foodItem.id == foodItemId) {
+            if (item.matchesLine(lineId)) {
                 item.copy(quantity = item.quantity + 1)
             } else {
                 item
@@ -60,10 +83,10 @@ object CartRepository {
         }
     }
 
-    fun decreaseQuantity(foodItemId: String) {
+    fun decreaseQuantity(lineId: String) {
         _cartItems.value = _cartItems.value.mapNotNull { item ->
             when {
-                item.foodItem.id != foodItemId -> item
+                !item.matchesLine(lineId) -> item
                 item.quantity <= 1 -> null
                 else -> item.copy(quantity = item.quantity - 1)
             }
@@ -71,9 +94,19 @@ object CartRepository {
         clearRestaurantIfEmpty()
     }
 
-    fun removeItem(foodItemId: String) {
-        _cartItems.value = _cartItems.value.filterNot { it.foodItem.id == foodItemId }
+    fun removeItem(lineId: String) {
+        _cartItems.value = _cartItems.value.filterNot { it.matchesLine(lineId) }
         clearRestaurantIfEmpty()
+    }
+
+    fun updateSpecialInstruction(lineId: String, instruction: String) {
+        _cartItems.value = _cartItems.value.map { item ->
+            if (item.matchesLine(lineId)) {
+                item.copy(specialInstruction = instruction.take(120))
+            } else {
+                item
+            }
+        }
     }
 
     fun clearCart() {
@@ -93,5 +126,25 @@ object CartRepository {
         if (_cartItems.value.isEmpty()) {
             _restaurant.value = null
         }
+    }
+
+    private fun CartItem.matchesLine(lineId: String): Boolean {
+        return this.lineId == lineId || foodItem.id == lineId
+    }
+
+    private fun buildCartLineId(
+        foodItem: FoodItem,
+        selectedExtras: List<CustomizationOption>,
+        removedIngredients: List<String>,
+        spiceLevel: String,
+        specialInstruction: String
+    ): String {
+        return listOf(
+            foodItem.id,
+            selectedExtras.map { it.id.ifBlank { it.name } }.sorted().joinToString(","),
+            removedIngredients.sorted().joinToString(","),
+            spiceLevel,
+            specialInstruction.trim()
+        ).joinToString("|")
     }
 }

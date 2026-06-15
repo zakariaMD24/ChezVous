@@ -4,30 +4,35 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chezvous.data.model.FoodItem
 import com.example.chezvous.data.model.Restaurant
+import com.example.chezvous.data.model.UserRoles
+import com.example.chezvous.data.repository.AuthRepository
 import com.example.chezvous.data.repository.CartRepository
 import com.example.chezvous.data.repository.RestaurantRepository
+import com.example.chezvous.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private const val ALL_CUISINES = "Tous"
+const val ALL_CUISINES = "__all__"
 const val MIN_RATING_FILTER = 0.0
 const val MAX_RATING_FILTER = 5.0
+const val TOP_RATING_FILTER = 4.5
 const val DEFAULT_MAX_DELIVERY_MINUTES = 60
+const val FAST_DELIVERY_MINUTES = 30
 const val MIN_DELIVERY_FILTER = 20
 const val MAX_DELIVERY_FILTER = 60
 const val DEFAULT_MAX_MINIMUM_ORDER = 100.0
 const val MINIMUM_ORDER_FILTER_MIN = 20.0
 const val MINIMUM_ORDER_FILTER_MAX = 100.0
 
-enum class RestaurantSortOption(val label: String) {
-    RECOMMENDED("Recommande"),
-    TOP_RATED("Mieux notes"),
-    FASTEST_DELIVERY("Livraison rapide"),
-    LOWEST_MINIMUM_ORDER("Minimum bas"),
-    NAME_A_Z("Nom A-Z")
+enum class RestaurantSortOption {
+    RECOMMENDED,
+    TOP_RATED,
+    FASTEST_DELIVERY,
+    LOWEST_MINIMUM_ORDER,
+    NAME_A_Z
 }
 
 data class HomeUiState(
@@ -41,7 +46,8 @@ data class HomeUiState(
     val maxMinimumOrder: Double = DEFAULT_MAX_MINIMUM_ORDER,
     val onlyOpen: Boolean = false,
     val sortOption: RestaurantSortOption = RestaurantSortOption.RECOMMENDED,
-    val cartItemCount: Int = 0
+    val cartItemCount: Int = 0,
+    val showPartnerDashboard: Boolean = false
 ) {
     val activeFilterCount: Int
         get() = listOf(
@@ -55,34 +61,37 @@ data class HomeUiState(
 
 class HomeViewModel : ViewModel() {
 
-    private val repository = RestaurantRepository()
-    private var allRestaurants = repository.getRestaurants()
-    private var allMenuItems = repository.getAllMenuItems()
+    private val restaurantRepository = RestaurantRepository()
+    private val authRepository = AuthRepository()
+    private val userRepository = UserRepository()
+
+    private var allRestaurants = restaurantRepository.getRestaurants()
+    private var allMenuItems = restaurantRepository.getAllMenuItems()
 
     private val _uiState = MutableStateFlow(
         HomeUiState(
             restaurants = allRestaurants,
             cuisineTypes = cuisineTypesFor(allRestaurants),
-            isLoading = false
+            isLoading = allRestaurants.isEmpty()
         )
     )
     val uiState: StateFlow<HomeUiState> = _uiState
 
     init {
         viewModelScope.launch {
-            repository.seedDemoDataIfEmpty()
+            restaurantRepository.seedDemoDataIfEmpty()
         }
 
         viewModelScope.launch {
-            repository.observeRestaurants().collect { latestRestaurants ->
-                allRestaurants = latestRestaurants
+            restaurantRepository.observeRestaurants().collect { restaurants ->
+                allRestaurants = restaurants
                 applyFiltersAndSort()
             }
         }
 
         viewModelScope.launch {
-            repository.observeAllMenuItems().collect { latestMenuItems ->
-                allMenuItems = latestMenuItems
+            restaurantRepository.observeAllMenuItems().collect { menuItems ->
+                allMenuItems = menuItems
                 applyFiltersAndSort()
             }
         }
@@ -91,6 +100,16 @@ class HomeViewModel : ViewModel() {
             CartRepository.cartItems.collect { cartItems ->
                 _uiState.update {
                     it.copy(cartItemCount = cartItems.sumOf { item -> item.quantity })
+                }
+            }
+        }
+
+        authRepository.currentUserId()?.let { userId ->
+            viewModelScope.launch {
+                userRepository.observeUser(userId).collect { user ->
+                    _uiState.update {
+                        it.copy(showPartnerDashboard = user?.role.isPartnerRole())
+                    }
                 }
             }
         }
@@ -142,6 +161,35 @@ class HomeViewModel : ViewModel() {
         applyFiltersAndSort()
     }
 
+    fun toggleFastDelivery() {
+        val enabled = _uiState.value.maxDeliveryMinutes <= FAST_DELIVERY_MINUTES
+        _uiState.update {
+            it.copy(
+                maxDeliveryMinutes = if (enabled) {
+                    DEFAULT_MAX_DELIVERY_MINUTES
+                } else {
+                    FAST_DELIVERY_MINUTES
+                }
+            )
+        }
+        applyFiltersAndSort()
+    }
+
+    fun toggleTopRated() {
+        val enabled = _uiState.value.minimumRating >= TOP_RATING_FILTER
+        _uiState.update {
+            it.copy(
+                minimumRating = if (enabled) MIN_RATING_FILTER else TOP_RATING_FILTER
+            )
+        }
+        applyFiltersAndSort()
+    }
+
+    fun toggleOpenFilter() {
+        _uiState.update { it.copy(onlyOpen = !it.onlyOpen) }
+        applyFiltersAndSort()
+    }
+
     fun clearCuisineFilter() {
         _uiState.update { it.copy(selectedCuisine = ALL_CUISINES) }
         applyFiltersAndSort()
@@ -183,50 +231,41 @@ class HomeViewModel : ViewModel() {
     private fun applyFiltersAndSort() {
         val state = _uiState.value
         val cuisineTypes = cuisineTypesFor(allRestaurants)
-        val selectedCuisine = if (state.selectedCuisine in cuisineTypes) {
-            state.selectedCuisine
-        } else {
-            ALL_CUISINES
-        }
-
+        val selectedCuisine = state.selectedCuisine.takeIf { it in cuisineTypes } ?: ALL_CUISINES
         val query = state.searchQuery.trim()
-        val restaurantIdsMatchingMenu = if (query.isBlank()) {
-            emptySet()
-        } else {
-            allMenuItems
-                .filter { it.matchesQuery(query) }
-                .map { it.restaurantId }
-                .toSet()
-        }
+        val matchingRestaurantIds = matchingRestaurantIdsFromMenu(query)
 
-        val filteredRestaurants = allRestaurants.filter { restaurant ->
-            val matchesSearch = query.isBlank() ||
-                    restaurant.matchesQuery(query) ||
-                    restaurant.id in restaurantIdsMatchingMenu
-            val matchesCuisine = selectedCuisine == ALL_CUISINES ||
-                    restaurant.cuisineType.equals(selectedCuisine, ignoreCase = true)
-            val matchesRating = restaurant.rating >= state.minimumRating
-            val matchesDelivery = (restaurant.maxDeliveryMinutes() ?: Int.MAX_VALUE) <=
-                    state.maxDeliveryMinutes
-            val matchesMinimumOrder = restaurant.minimumOrder <= state.maxMinimumOrder
-            val matchesOpenState = !state.onlyOpen || restaurant.isOpen
-
-            matchesSearch &&
-                    matchesCuisine &&
-                    matchesRating &&
-                    matchesDelivery &&
-                    matchesMinimumOrder &&
-                    matchesOpenState
-        }.sortedWith(state.sortOption.comparator())
+        val restaurants = allRestaurants
+            .asSequence()
+            .filter { restaurant ->
+                restaurant.matchesSearch(query, matchingRestaurantIds) &&
+                        restaurant.matchesCuisine(selectedCuisine) &&
+                        restaurant.rating >= state.minimumRating &&
+                        (restaurant.maxDeliveryMinutes() ?: Int.MAX_VALUE) <= state.maxDeliveryMinutes &&
+                        restaurant.minimumOrder <= state.maxMinimumOrder &&
+                        (!state.onlyOpen || restaurant.isOpen)
+            }
+            .toList()
+            .sortedByOption(state.sortOption)
 
         _uiState.update {
             it.copy(
                 isLoading = false,
-                restaurants = filteredRestaurants,
+                restaurants = restaurants,
                 cuisineTypes = cuisineTypes,
                 selectedCuisine = selectedCuisine
             )
         }
+    }
+
+    private fun matchingRestaurantIdsFromMenu(query: String): Set<String> {
+        if (query.isBlank()) return emptySet()
+
+        return allMenuItems
+            .asSequence()
+            .filter { it.matchesQuery(query) }
+            .map { it.restaurantId }
+            .toSet()
     }
 }
 
@@ -235,11 +274,7 @@ fun Double.asRatingFilterLabel(): String {
 }
 
 fun Double.asOrderFilterLabel(): String {
-    return if (this % 1.0 == 0.0) {
-        "${toInt()} DH"
-    } else {
-        "$this DH"
-    }
+    return if (this % 1.0 == 0.0) "${toInt()} DH" else "$this DH"
 }
 
 fun Double.roundToHalf(): Double {
@@ -252,9 +287,21 @@ fun Float.roundToNearestFive(): Int {
 
 private fun cuisineTypesFor(restaurants: List<Restaurant>): List<String> {
     return listOf(ALL_CUISINES) +
-            restaurants.map { it.cuisineType }
+            restaurants
+                .map { it.cuisineType }
                 .filter { it.isNotBlank() }
                 .distinct()
+}
+
+private fun Restaurant.matchesSearch(
+    query: String,
+    matchingRestaurantIds: Set<String>
+): Boolean {
+    return query.isBlank() || matchesQuery(query) || id in matchingRestaurantIds
+}
+
+private fun Restaurant.matchesCuisine(cuisine: String): Boolean {
+    return cuisine == ALL_CUISINES || cuisineType.equals(cuisine, ignoreCase = true)
 }
 
 private fun Restaurant.matchesQuery(query: String): Boolean {
@@ -276,13 +323,13 @@ private fun Restaurant.maxDeliveryMinutes(): Int? {
         .maxOrNull()
 }
 
-private fun RestaurantSortOption.comparator(): Comparator<Restaurant> {
-    return when (this) {
-        RestaurantSortOption.RECOMMENDED -> compareBy { 0 }
-        RestaurantSortOption.TOP_RATED -> compareByDescending { it.rating }
-        RestaurantSortOption.FASTEST_DELIVERY -> compareBy { it.maxDeliveryMinutes() ?: Int.MAX_VALUE }
-        RestaurantSortOption.LOWEST_MINIMUM_ORDER -> compareBy { it.minimumOrder }
-        RestaurantSortOption.NAME_A_Z -> compareBy { it.name.lowercase() }
+private fun List<Restaurant>.sortedByOption(option: RestaurantSortOption): List<Restaurant> {
+    return when (option) {
+        RestaurantSortOption.RECOMMENDED -> this
+        RestaurantSortOption.TOP_RATED -> sortedByDescending { it.rating }
+        RestaurantSortOption.FASTEST_DELIVERY -> sortedBy { it.maxDeliveryMinutes() ?: Int.MAX_VALUE }
+        RestaurantSortOption.LOWEST_MINIMUM_ORDER -> sortedBy { it.minimumOrder }
+        RestaurantSortOption.NAME_A_Z -> sortedBy { it.name.lowercase() }
     }
 }
 
@@ -290,6 +337,10 @@ private fun Double.formatOneDecimal(): String {
     return if (this % 1.0 == 0.0) {
         toInt().toString()
     } else {
-        String.format("%.1f", this)
+        String.format(java.util.Locale.US, "%.1f", this)
     }
+}
+
+private fun String?.isPartnerRole(): Boolean {
+    return this == UserRoles.PARTNER || this == UserRoles.ADMIN
 }

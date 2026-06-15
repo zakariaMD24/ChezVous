@@ -62,7 +62,11 @@ class RestaurantRepository(
                             ?.copy(id = document.id)
                     }
 
-                    trySend(menuItems.ifEmpty { FakeFoodData.menuItems })
+                    trySend(
+                        menuItems
+                            .ifEmpty { FakeFoodData.menuItems }
+                            .withFallbackDrinks()
+                    )
                 }
 
             awaitClose { registration.remove() }
@@ -91,7 +95,11 @@ class RestaurantRepository(
                             ?.copy(id = document.id)
                     }
 
-                    trySend(menuItems.ifEmpty { getMenuItems(restaurantId) })
+                    trySend(
+                        menuItems
+                            .ifEmpty { getMenuItems(restaurantId) }
+                            .withFallbackDrinks(restaurantId)
+                    )
                 }
 
             awaitClose { registration.remove() }
@@ -102,6 +110,48 @@ class RestaurantRepository(
 
     fun getMenuItems(restaurantId: String): List<FoodItem> {
         return FakeFoodData.menuItems.filter { it.restaurantId == restaurantId }
+    }
+
+    suspend fun createMenuItem(foodItem: FoodItem): Result<String> {
+        return try {
+            val document = firestore.collection(FirestoreCollections.MENU_ITEMS).document()
+            val itemWithId = foodItem.copy(id = document.id)
+            document.set(itemWithId.toFirestoreMap(), SetOptions.merge()).await()
+            Result.success(document.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateMenuItem(foodItem: FoodItem): Result<Unit> {
+        return try {
+            firestore
+                .collection(FirestoreCollections.MENU_ITEMS)
+                .document(foodItem.id)
+                .set(foodItem.toFirestoreMap(), SetOptions.merge())
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateMenuItemAvailability(
+        foodItemId: String,
+        isAvailable: Boolean
+    ): Result<Unit> {
+        return try {
+            firestore
+                .collection(FirestoreCollections.MENU_ITEMS)
+                .document(foodItemId)
+                .update("isAvailable", isAvailable)
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun seedDemoDataIfEmpty(): Result<Unit> {
@@ -144,5 +194,55 @@ class RestaurantRepository(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun FoodItem.toFirestoreMap(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "restaurantId" to restaurantId,
+            "name" to name,
+            "description" to description,
+            "price" to price,
+            "category" to category,
+            "imageUrl" to imageUrl,
+            "isAvailable" to isAvailable,
+            "extraOptions" to extraOptions.map { option ->
+                option.toFirestoreMap()
+            },
+            "removableIngredients" to removableIngredients,
+            "spiceLevels" to spiceLevels,
+            "removableIngredientOptions" to removableIngredientOptions.map { option ->
+                option.toFirestoreMap()
+            },
+            "spiceLevelOptions" to spiceLevelOptions.map { option ->
+                option.toFirestoreMap()
+            }
+        )
+    }
+
+    private fun com.example.chezvous.data.model.CustomizationOption.toFirestoreMap(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "name" to name,
+            "price" to price,
+            "imageUrl" to imageUrl,
+            "description" to description
+        )
+    }
+
+    private fun List<FoodItem>.withFallbackDrinks(restaurantId: String? = null): List<FoodItem> {
+        val existingIds = map { it.id }.toSet()
+        val fallbackDrinks = FakeFoodData.menuItems.filter { item ->
+            item.isDrinkItem() &&
+                    item.id !in existingIds &&
+                    (restaurantId == null || item.restaurantId == restaurantId)
+        }
+        return this + fallbackDrinks
+    }
+
+    private fun FoodItem.isDrinkItem(): Boolean {
+        return category.contains("boisson", ignoreCase = true) ||
+                category.contains("drink", ignoreCase = true) ||
+                category.contains("soda", ignoreCase = true)
     }
 }

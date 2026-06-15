@@ -9,33 +9,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chezvous.presentation.auth.rememberCredentialLogoutHandler
 import com.example.chezvous.ui.components.ChezVousButton
 import com.example.chezvous.ui.components.ChezVousTextField
+import com.example.chezvous.ui.components.ChezVousTopBar
+import com.example.chezvous.ui.components.chezVousScreenPadding
+import com.example.chezvous.ui.theme.ChezVousSpacing
 
 @Composable
 fun ProfileScreen(
@@ -63,7 +63,6 @@ fun ProfileScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileContent(
     uiState: ProfileUiState,
@@ -76,13 +75,9 @@ private fun ProfileContent(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Mon profil") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, contentDescription = "Retour")
-                    }
-                },
+            ChezVousTopBar(
+                title = "Mon profil",
+                onBack = onBack,
                 actions = {
                     IconButton(onClick = onLogout) {
                         Icon(Icons.Outlined.Logout, contentDescription = "Deconnexion")
@@ -96,8 +91,9 @@ private fun ProfileContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center
+                    .padding(ChezVousSpacing.xl),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularProgressIndicator()
             }
@@ -107,8 +103,9 @@ private fun ProfileContent(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .chezVousScreenPadding()
+                    .padding(vertical = ChezVousSpacing.xl),
+                verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
             ) {
                 Text(
                     text = "Informations utilisateur",
@@ -121,7 +118,7 @@ private fun ProfileContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xxs))
 
                 ChezVousTextField(
                     value = uiState.fullName,

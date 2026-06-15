@@ -5,15 +5,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import com.example.chezvous.ui.theme.ChezVousSize
+import com.example.chezvous.ui.theme.ChezVousSpacing
 
 @Composable
 fun GoogleSignInButton(
@@ -25,15 +26,15 @@ fun GoogleSignInButton(
         enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp),
-        shape = RoundedCornerShape(18.dp)
+            .height(ChezVousSize.buttonHeight),
+        shape = MaterialTheme.shapes.medium
     ) {
         Icon(
             imageVector = Icons.Outlined.AccountCircle,
             contentDescription = null,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(ChezVousSize.iconMd)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(ChezVousSpacing.xs))
         Text(text = "Continuer avec Google")
     }
 }

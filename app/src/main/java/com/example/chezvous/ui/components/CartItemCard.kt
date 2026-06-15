@@ -9,13 +9,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Remove
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -24,9 +22,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.ImeAction
+import com.example.chezvous.R
 import com.example.chezvous.data.model.CartItem
+import com.example.chezvous.ui.theme.ChezVousSize
+import com.example.chezvous.ui.theme.ChezVousSpacing
 
 @Composable
 fun CartItemCard(
@@ -34,18 +36,12 @@ fun CartItemCard(
     onIncrease: () -> Unit,
     onDecrease: () -> Unit,
     onRemove: () -> Unit,
+    onInstructionChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+    ChezVousCard(modifier = modifier) {
         Column(
-            modifier = Modifier.padding(14.dp)
+            modifier = Modifier.padding(ChezVousSpacing.md)
         ) {
             Row(
                 verticalAlignment = Alignment.Top
@@ -59,7 +55,7 @@ fun CartItemCard(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(ChezVousSpacing.xxs))
 
                     Text(
                         text = cartItem.foodItem.description,
@@ -71,12 +67,26 @@ fun CartItemCard(
                 IconButton(onClick = onRemove) {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
-                        contentDescription = "Supprimer"
+                        contentDescription = stringResource(R.string.delete)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
+
+            CartCustomizationSummary(cartItem = cartItem)
+
+            Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
+
+            ChezVousTextField(
+                value = cartItem.specialInstruction,
+                onValueChange = onInstructionChange,
+                label = stringResource(R.string.item_instruction_label),
+                leadingIcon = Icons.Outlined.EditNote,
+                imeAction = ImeAction.Done
+            )
+
+            Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -85,7 +95,7 @@ fun CartItemCard(
             ) {
                 Column {
                     Text(
-                        text = cartItem.foodItem.price.asDhPrice(),
+                        text = cartItem.unitPrice.asDhPrice(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -109,26 +119,66 @@ fun CartItemCard(
 }
 
 @Composable
+private fun CartCustomizationSummary(cartItem: CartItem) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.xxs)
+    ) {
+        if (cartItem.selectedExtras.isNotEmpty()) {
+            Text(
+                text = stringResource(
+                    R.string.extras_summary,
+                    cartItem.selectedExtras.joinToString { it.name }
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        if (cartItem.removedIngredients.isNotEmpty()) {
+            Text(
+                text = stringResource(
+                    R.string.removed_ingredients_summary,
+                    cartItem.removedIngredients.joinToString()
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        if (cartItem.spiceLevel.isNotBlank()) {
+            Text(
+                text = stringResource(R.string.spice_summary, cartItem.spiceLevel),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
 private fun QuantityControl(
     quantity: Int,
     onIncrease: () -> Unit,
     onDecrease: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            modifier = Modifier.padding(
+                horizontal = ChezVousSpacing.xxs,
+                vertical = ChezVousSpacing.xxs
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = onDecrease,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(ChezVousSize.buttonHeight - ChezVousSpacing.md)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Remove,
-                    contentDescription = "Diminuer"
+                    contentDescription = stringResource(R.string.decrease)
                 )
             }
 
@@ -138,15 +188,15 @@ private fun QuantityControl(
                 fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.width(2.dp))
+            Spacer(modifier = Modifier.width(ChezVousSpacing.xxs))
 
             IconButton(
                 onClick = onIncrease,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(ChezVousSize.buttonHeight - ChezVousSpacing.md)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Add,
-                    contentDescription = "Augmenter"
+                    contentDescription = stringResource(R.string.increase)
                 )
             }
         }

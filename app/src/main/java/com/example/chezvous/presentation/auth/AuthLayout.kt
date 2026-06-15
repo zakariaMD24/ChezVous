@@ -19,6 +19,9 @@ import com.example.chezvous.ui.components.ChezVousEmailField
 import com.example.chezvous.ui.components.ChezVousPasswordField
 import com.example.chezvous.ui.components.ChezVousTextField
 import com.example.chezvous.ui.components.GoogleSignInButton
+import com.example.chezvous.ui.components.chezVousSheetPadding
+import com.example.chezvous.ui.theme.ChezVousSize
+import com.example.chezvous.ui.theme.ChezVousSpacing
 
 @Composable
 fun AuthLayout(
@@ -54,96 +57,103 @@ fun AuthLayout(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp),
+                .chezVousSheetPadding(),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.logo),
-                contentDescription = "Logo ChezVous",
-                modifier = Modifier.size(110.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            if (fullName != null && onFullNameChange != null) {
-                ChezVousTextField(
-                    value = fullName,
-                    onValueChange = onFullNameChange,
-                    label = "Nom complet",
-                    leadingIcon = Icons.Outlined.Person
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = ChezVousSize.maxFormWidth),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Logo ChezVous",
+                    modifier = Modifier.size(110.dp)
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            ChezVousEmailField(
-                value = email,
-                onValueChange = onEmailChange
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ChezVousPasswordField(
-                value = password,
-                onValueChange = onPasswordChange,
-                showPassword = showPassword,
-                onTogglePassword = onTogglePassword
-            )
-
-            errorMessage?.let {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xs))
 
                 Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
-            }
 
-            Spacer(modifier = Modifier.height(22.dp))
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xxs))
 
-            ChezVousButton(
-                text = mainButtonText,
-                loadingText = loadingText,
-                isLoading = isLoading,
-                enabled = canSubmit,
-                onClick = onMainClick
-            )
-
-            if (onGoogleClick != null) {
-                Spacer(modifier = Modifier.height(10.dp))
-
-                GoogleSignInButton(
-                    enabled = !isLoading,
-                    onClick = onGoogleClick
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(ChezVousSpacing.lg))
 
-            TextButton(
-                onClick = onSwitchClick,
-                enabled = !isLoading
-            ) {
-                Text(text = switchText)
+                if (fullName != null && onFullNameChange != null) {
+                    ChezVousTextField(
+                        value = fullName,
+                        onValueChange = onFullNameChange,
+                        label = "Nom complet",
+                        leadingIcon = Icons.Outlined.Person
+                    )
+
+                    Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
+                }
+
+                ChezVousEmailField(
+                    value = email,
+                    onValueChange = onEmailChange
+                )
+
+                Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
+
+                ChezVousPasswordField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    showPassword = showPassword,
+                    onTogglePassword = onTogglePassword
+                )
+
+                errorMessage?.let {
+                    Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
+
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xl))
+
+                ChezVousButton(
+                    text = mainButtonText,
+                    loadingText = loadingText,
+                    isLoading = isLoading,
+                    enabled = canSubmit,
+                    onClick = onMainClick
+                )
+
+                if (onGoogleClick != null) {
+                    Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
+
+                    GoogleSignInButton(
+                        enabled = !isLoading,
+                        onClick = onGoogleClick
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
+
+                TextButton(
+                    onClick = onSwitchClick,
+                    enabled = !isLoading
+                ) {
+                    Text(text = switchText)
+                }
             }
         }
     }

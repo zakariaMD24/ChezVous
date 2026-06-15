@@ -2,11 +2,16 @@ package com.example.chezvous.presentation.restaurant
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.chezvous.R
+import com.example.chezvous.data.model.CustomizationOption
 import com.example.chezvous.data.model.FoodItem
 import com.example.chezvous.data.model.Restaurant
+import com.example.chezvous.data.model.UserRoles
 import com.example.chezvous.data.repository.CartActionResult
 import com.example.chezvous.data.repository.CartRepository
+import com.example.chezvous.data.repository.AuthRepository
 import com.example.chezvous.data.repository.RestaurantRepository
+import com.example.chezvous.data.repository.UserRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,23 +19,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private const val ALL_CATEGORIES = "Tous"
+const val ALL_CATEGORIES = "__all__"
 const val DEFAULT_MAX_MENU_PRICE = 120.0
 const val MIN_MENU_PRICE_FILTER = 20.0
 const val MAX_MENU_PRICE_FILTER = 120.0
 
-enum class MenuAvailabilityFilter(val label: String) {
-    ALL("Tous les plats"),
-    AVAILABLE("Disponible"),
-    UNAVAILABLE("Indisponible")
+enum class MenuAvailabilityFilter {
+    ALL,
+    AVAILABLE,
+    UNAVAILABLE
 }
 
-enum class MenuSortOption(val label: String) {
-    DEFAULT("Recommande"),
-    PRICE_LOW_HIGH("Prix croissant"),
-    PRICE_HIGH_LOW("Prix decroissant"),
-    NAME_A_Z("Nom A-Z"),
-    AVAILABLE_FIRST("Disponible d'abord")
+enum class MenuSortOption {
+    DEFAULT,
+    PRICE_LOW_HIGH,
+    PRICE_HIGH_LOW,
+    NAME_A_Z,
+    AVAILABLE_FIRST
 }
 
 data class RestaurantDetailsUiState(
@@ -44,7 +49,9 @@ data class RestaurantDetailsUiState(
     val sortOption: MenuSortOption = MenuSortOption.DEFAULT,
     val searchQuery: String = "",
     val cartItemCount: Int = 0,
+    val canOrder: Boolean = true,
     val cartMessage: String? = null,
+    val cartMessageResId: Int? = null,
     val errorMessage: String? = null
 ) {
     val activeFilterCount: Int
@@ -58,6 +65,8 @@ data class RestaurantDetailsUiState(
 class RestaurantDetailsViewModel : ViewModel() {
 
     private val repository = RestaurantRepository()
+    private val authRepository = AuthRepository()
+    private val userRepository = UserRepository()
     private var currentRestaurantId = ""
     private var allMenuItems = emptyList<FoodItem>()
     private var restaurantJob: Job? = null
@@ -71,6 +80,16 @@ class RestaurantDetailsViewModel : ViewModel() {
             CartRepository.cartItems.collect { cartItems ->
                 _uiState.update {
                     it.copy(cartItemCount = cartItems.sumOf { item -> item.quantity })
+                }
+            }
+        }
+
+        authRepository.currentUserId()?.let { userId ->
+            viewModelScope.launch {
+                userRepository.observeUser(userId).collect { user ->
+                    _uiState.update {
+                        it.copy(canOrder = user?.role.isCustomerOrderRole())
+                    }
                 }
             }
         }
@@ -137,26 +156,49 @@ class RestaurantDetailsViewModel : ViewModel() {
         applyMenuFiltersAndSort()
     }
 
-    fun addToCart(foodItem: FoodItem) {
-        val restaurant = _uiState.value.restaurant
-        if (restaurant == null) {
-            _uiState.update { it.copy(cartMessage = "Restaurant introuvable pour ce plat.") }
+    fun addToCart(
+        foodItem: FoodItem,
+        selectedExtras: List<CustomizationOption> = emptyList(),
+        removedIngredients: List<String> = emptyList(),
+        spiceLevel: String = "",
+        specialInstruction: String = ""
+    ) {
+        if (!_uiState.value.canOrder) {
+            _uiState.update {
+                it.copy(cartMessageResId = R.string.partner_order_disabled)
+            }
             return
         }
 
-        val result = CartRepository.addItem(foodItem, restaurant)
+        val restaurant = _uiState.value.restaurant
+        if (restaurant == null) {
+            _uiState.update {
+                it.copy(cartMessageResId = R.string.restaurant_not_found_for_food)
+            }
+            return
+        }
+
+        val result = CartRepository.addItem(
+            foodItem = foodItem,
+            restaurant = restaurant,
+            selectedExtras = selectedExtras,
+            removedIngredients = removedIngredients,
+            spiceLevel = spiceLevel,
+            specialInstruction = specialInstruction
+        )
         _uiState.update {
             it.copy(
                 cartMessage = when (result) {
                     is CartActionResult.Success -> result.message
                     is CartActionResult.Error -> result.message
-                }
+                },
+                cartMessageResId = null
             )
         }
     }
 
     fun clearCartMessage() {
-        _uiState.update { it.copy(cartMessage = null) }
+        _uiState.update { it.copy(cartMessage = null, cartMessageResId = null) }
     }
 
     fun clearCategoryFilter() {
@@ -257,4 +299,8 @@ private fun MenuSortOption.comparator(): Comparator<FoodItem> {
         MenuSortOption.NAME_A_Z -> compareBy { it.name.lowercase() }
         MenuSortOption.AVAILABLE_FIRST -> compareByDescending { it.isAvailable }
     }
+}
+
+private fun String?.isCustomerOrderRole(): Boolean {
+    return this != UserRoles.PARTNER && this != UserRoles.ADMIN
 }

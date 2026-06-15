@@ -1,9 +1,11 @@
 package com.example.chezvous.presentation.restaurant
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,11 +16,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.ShoppingCart
@@ -32,11 +32,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,20 +44,35 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.chezvous.R
 import com.example.chezvous.data.model.FoodItem
 import com.example.chezvous.data.model.Restaurant
 import com.example.chezvous.ui.components.ActiveFilterChipItem
 import com.example.chezvous.ui.components.ActiveFilterChipRow
 import com.example.chezvous.ui.components.CategoryChip
+import com.example.chezvous.ui.components.ChezVousCard
 import com.example.chezvous.ui.components.ChezVousSearchBar
+import com.example.chezvous.ui.components.ChezVousTopBar
+import com.example.chezvous.ui.components.FilterOptionChipItem
+import com.example.chezvous.ui.components.FilterOptionChipRow
 import com.example.chezvous.ui.components.FilterSortActionRow
+import com.example.chezvous.ui.components.FoodCustomizationSheet
 import com.example.chezvous.ui.components.FoodItemCard
 import com.example.chezvous.ui.components.SectionTitle
 import com.example.chezvous.ui.components.SheetOptionRow
 import com.example.chezvous.ui.components.SheetSectionTitle
+import com.example.chezvous.ui.components.asDhPrice
+import com.example.chezvous.ui.components.chezVousScreenPadding
+import com.example.chezvous.ui.components.chezVousSheetPadding
+import com.example.chezvous.ui.components.isDrinkItem
+import com.example.chezvous.ui.theme.ChezVousSize
+import com.example.chezvous.ui.theme.ChezVousSpacing
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,13 +86,14 @@ fun RestaurantDetailsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
+    var customizingItem by remember { mutableStateOf<FoodItem?>(null) }
 
     LaunchedEffect(restaurantId) {
         viewModel.loadRestaurant(restaurantId)
     }
 
-    LaunchedEffect(uiState.cartMessage) {
-        if (uiState.cartMessage != null) {
+    LaunchedEffect(uiState.cartMessage, uiState.cartMessageResId) {
+        if (uiState.cartMessage != null || uiState.cartMessageResId != null) {
             delay(2500)
             viewModel.clearCartMessage()
         }
@@ -90,7 +104,7 @@ fun RestaurantDetailsScreen(
         activeFilters = menuActiveFilterItems(uiState, viewModel),
         onBack = onBack,
         onOpenCart = onOpenCart,
-        onAddToCart = viewModel::addToCart,
+        onCustomizeItem = { customizingItem = it },
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onFilterClick = { showFilterSheet = true },
         onSortClick = { showSortSheet = true },
@@ -118,6 +132,23 @@ fun RestaurantDetailsScreen(
             }
         )
     }
+
+    customizingItem?.let { foodItem ->
+        FoodCustomizationSheet(
+            foodItem = foodItem,
+            onDismiss = { customizingItem = null },
+            onConfirm = { selectedExtras, removedIngredients, spiceLevel, instruction ->
+                viewModel.addToCart(
+                    foodItem = foodItem,
+                    selectedExtras = selectedExtras,
+                    removedIngredients = removedIngredients,
+                    spiceLevel = spiceLevel,
+                    specialInstruction = instruction
+                )
+                customizingItem = null
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,7 +158,7 @@ private fun RestaurantDetailsContent(
     activeFilters: List<ActiveFilterChipItem>,
     onBack: () -> Unit,
     onOpenCart: () -> Unit,
-    onAddToCart: (FoodItem) -> Unit,
+    onCustomizeItem: (FoodItem) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onFilterClick: () -> Unit,
     onSortClick: () -> Unit,
@@ -135,15 +166,9 @@ private fun RestaurantDetailsContent(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(uiState.restaurant?.name ?: "Restaurant")
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Outlined.ArrowBack, contentDescription = "Retour")
-                    }
-                },
+            ChezVousTopBar(
+                title = uiState.restaurant?.name ?: stringResource(R.string.restaurant),
+                onBack = onBack,
                 actions = {
                     IconButton(onClick = onOpenCart) {
                         if (uiState.cartItemCount > 0) {
@@ -154,10 +179,16 @@ private fun RestaurantDetailsContent(
                                     }
                                 }
                             ) {
-                                Icon(Icons.Outlined.ShoppingCart, contentDescription = "Panier")
+                                Icon(
+                                    Icons.Outlined.ShoppingCart,
+                                    contentDescription = stringResource(R.string.cart)
+                                )
                             }
                         } else {
-                            Icon(Icons.Outlined.ShoppingCart, contentDescription = "Panier")
+                            Icon(
+                                Icons.Outlined.ShoppingCart,
+                                contentDescription = stringResource(R.string.cart)
+                            )
                         }
                     }
                 }
@@ -176,12 +207,18 @@ private fun RestaurantDetailsContent(
                 CircularProgressIndicator()
             }
         } else {
+            val cartMessage = uiState.cartMessageResId?.let { resId ->
+                stringResource(resId)
+            } ?: uiState.cartMessage
+            val drinkItems = uiState.menuItems.filter { it.isDrinkItem() }
+            val regularMenuItems = uiState.menuItems.filterNot { it.isDrinkItem() }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .chezVousScreenPadding(),
+                verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.md)
             ) {
                 item {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -192,7 +229,7 @@ private fun RestaurantDetailsContent(
                     ChezVousSearchBar(
                         value = uiState.searchQuery,
                         onValueChange = onSearchQueryChange,
-                        placeholder = "Rechercher un plat ou categorie"
+                        placeholder = stringResource(R.string.search_menu_placeholder)
                     )
                 }
 
@@ -211,16 +248,16 @@ private fun RestaurantDetailsContent(
                     )
                 }
 
-                if (uiState.cartMessage != null) {
+                if (cartMessage != null) {
                     item {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = MaterialTheme.shapes.small,
                             color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
-                                text = uiState.cartMessage.orEmpty(),
-                                modifier = Modifier.padding(14.dp),
+                                text = cartMessage,
+                                modifier = Modifier.padding(ChezVousSpacing.sm),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -228,8 +265,25 @@ private fun RestaurantDetailsContent(
                     }
                 }
 
+                if (!uiState.canOrder) {
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                text = stringResource(R.string.partner_order_disabled),
+                                modifier = Modifier.padding(ChezVousSpacing.sm),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+
                 item {
-                    SectionTitle(text = "Menu")
+                    SectionTitle(text = stringResource(R.string.menu))
                 }
 
                 if (uiState.menuItems.isEmpty()) {
@@ -238,13 +292,32 @@ private fun RestaurantDetailsContent(
                     }
                 }
 
-                items(uiState.menuItems) { foodItem ->
+                items(regularMenuItems) { foodItem ->
                     FoodItemCard(
                         foodItem = foodItem,
-                        onAddClick = {
-                            onAddToCart(foodItem)
+                        onAddClick = if (uiState.canOrder) {
+                            { onCustomizeItem(foodItem) }
+                        } else {
+                            null
                         }
                     )
+                }
+
+                if (drinkItems.isNotEmpty()) {
+                    item {
+                        SectionTitle(text = stringResource(R.string.drinks))
+                    }
+
+                    items(drinkItems) { foodItem ->
+                        FoodItemCard(
+                            foodItem = foodItem,
+                            onAddClick = if (uiState.canOrder) {
+                                { onCustomizeItem(foodItem) }
+                            } else {
+                                null
+                            }
+                        )
+                    }
                 }
 
                 item {
@@ -270,65 +343,62 @@ private fun MenuFilterSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
+                .chezVousSheetPadding()
+                .padding(bottom = ChezVousSpacing.xl)
         ) {
             Text(
-                text = "Filtrer le menu",
+                text = stringResource(R.string.filter_menu),
                 style = MaterialTheme.typography.titleLarge
             )
 
-            SheetSectionTitle(text = "Categorie")
-            LazyRow {
+            SheetSectionTitle(text = stringResource(R.string.category))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)
+            ) {
                 items(uiState.categories) { category ->
                     CategoryChip(
-                        text = category,
+                        text = category.localizedMenuCategoryLabel(),
                         selected = uiState.selectedCategory == category,
                         onClick = { onCategorySelected(category) }
                     )
                 }
             }
 
-            SheetSectionTitle(text = "Disponibilite")
-            LazyRow {
-                items(MenuAvailabilityFilter.entries) { filter ->
-                    CategoryChip(
-                        text = filter.label,
+            SheetSectionTitle(text = stringResource(R.string.availability))
+            FilterOptionChipRow(
+                options = MenuAvailabilityFilter.entries.map { filter ->
+                    FilterOptionChipItem(
+                        label = filter.localizedLabel(),
                         selected = uiState.availabilityFilter == filter,
                         onClick = { onAvailabilityFilterSelected(filter) }
                     )
                 }
-            }
+            )
 
-            SheetSectionTitle(text = "Prix maximum")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Afficher les plats jusqu'a",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            SheetSectionTitle(text = stringResource(R.string.maximum_price))
+            FilterOptionChipRow(
+                options = listOf(
+                    FilterOptionChipItem(
+                        label = stringResource(R.string.all_prices),
+                        selected = uiState.maxPrice == DEFAULT_MAX_MENU_PRICE,
+                        onClick = { onMaxPriceChange(DEFAULT_MAX_MENU_PRICE) }
+                    ),
+                    FilterOptionChipItem(
+                        label = "40 DH",
+                        selected = uiState.maxPrice == 40.0,
+                        onClick = { onMaxPriceChange(40.0) }
+                    ),
+                    FilterOptionChipItem(
+                        label = "60 DH",
+                        selected = uiState.maxPrice == 60.0,
+                        onClick = { onMaxPriceChange(60.0) }
+                    ),
+                    FilterOptionChipItem(
+                        label = "90 DH",
+                        selected = uiState.maxPrice == 90.0,
+                        onClick = { onMaxPriceChange(90.0) }
+                    )
                 )
-
-                Text(
-                    text = if (uiState.maxPrice < DEFAULT_MAX_MENU_PRICE) {
-                        uiState.maxPrice.asMenuPriceFilterLabel()
-                    } else {
-                        "Tous les prix"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Slider(
-                value = uiState.maxPrice.toFloat(),
-                onValueChange = {
-                    onMaxPriceChange(it.roundMenuPriceToNearestFive())
-                },
-                valueRange = MIN_MENU_PRICE_FILTER.toFloat()..MAX_MENU_PRICE_FILTER.toFloat(),
-                steps = 19
             )
 
             Row(
@@ -336,11 +406,11 @@ private fun MenuFilterSheet(
                 horizontalArrangement = Arrangement.End
             ) {
                 TextButton(onClick = onClearFilters) {
-                    Text("Reinitialiser")
+                    Text(stringResource(R.string.reset))
                 }
 
                 TextButton(onClick = onDismiss) {
-                    Text("Appliquer")
+                    Text(stringResource(R.string.apply))
                 }
             }
         }
@@ -358,17 +428,17 @@ private fun MenuSortSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
+                .chezVousSheetPadding()
+                .padding(bottom = ChezVousSpacing.xl)
         ) {
             Text(
-                text = "Trier le menu",
+                text = stringResource(R.string.sort_menu),
                 style = MaterialTheme.typography.titleLarge
             )
 
             MenuSortOption.entries.forEach { option ->
                 SheetOptionRow(
-                    text = option.label,
+                    text = option.localizedLabel(),
                     selected = selectedSort == option,
                     onClick = { onSortSelected(option) }
                 )
@@ -377,14 +447,15 @@ private fun MenuSortSheet(
     }
 }
 
+@Composable
 private fun menuActiveFilterItems(
     uiState: RestaurantDetailsUiState,
     viewModel: RestaurantDetailsViewModel
 ): List<ActiveFilterChipItem> {
     return buildList {
-        if (uiState.selectedCategory != "Tous") {
+        if (uiState.selectedCategory != ALL_CATEGORIES) {
             add(
-                ActiveFilterChipItem(uiState.selectedCategory) {
+                ActiveFilterChipItem(uiState.selectedCategory.localizedMenuCategoryLabel()) {
                     viewModel.clearCategoryFilter()
                 }
             )
@@ -392,7 +463,7 @@ private fun menuActiveFilterItems(
 
         if (uiState.availabilityFilter != MenuAvailabilityFilter.ALL) {
             add(
-                ActiveFilterChipItem(uiState.availabilityFilter.label) {
+                ActiveFilterChipItem(uiState.availabilityFilter.localizedLabel()) {
                     viewModel.clearAvailabilityFilter()
                 }
             )
@@ -400,7 +471,12 @@ private fun menuActiveFilterItems(
 
         if (uiState.maxPrice < DEFAULT_MAX_MENU_PRICE) {
             add(
-                ActiveFilterChipItem("Max ${uiState.maxPrice.asMenuPriceFilterLabel()}") {
+                ActiveFilterChipItem(
+                    stringResource(
+                        R.string.maximum_filter_label,
+                        uiState.maxPrice.asMenuPriceFilterLabel()
+                    )
+                ) {
                     viewModel.clearPriceFilter()
                 }
             )
@@ -409,36 +485,54 @@ private fun menuActiveFilterItems(
 }
 
 @Composable
+private fun String.localizedMenuCategoryLabel(): String {
+    return if (this == ALL_CATEGORIES) {
+        stringResource(R.string.all_categories)
+    } else {
+        this
+    }
+}
+
+@Composable
+private fun MenuAvailabilityFilter.localizedLabel(): String {
+    return when (this) {
+        MenuAvailabilityFilter.ALL -> stringResource(R.string.all_food_items)
+        MenuAvailabilityFilter.AVAILABLE -> stringResource(R.string.available)
+        MenuAvailabilityFilter.UNAVAILABLE -> stringResource(R.string.unavailable)
+    }
+}
+
+@Composable
+private fun MenuSortOption.localizedLabel(): String {
+    return when (this) {
+        MenuSortOption.DEFAULT -> stringResource(R.string.sort_recommended)
+        MenuSortOption.PRICE_LOW_HIGH -> stringResource(R.string.sort_price_low_high)
+        MenuSortOption.PRICE_HIGH_LOW -> stringResource(R.string.sort_price_high_low)
+        MenuSortOption.NAME_A_Z -> stringResource(R.string.sort_name_a_z)
+        MenuSortOption.AVAILABLE_FIRST -> stringResource(R.string.sort_available_first)
+    }
+}
+
+@Composable
 private fun RestaurantHeader(restaurant: Restaurant?) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.primaryContainer
+    ChezVousCard(
+        containerColor = MaterialTheme.colorScheme.primaryContainer
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .height(156.dp)
+                .padding(ChezVousSpacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                modifier = Modifier.size(72.dp),
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Restaurant,
-                    contentDescription = null,
-                    modifier = Modifier.padding(18.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+            RestaurantHeaderImage(restaurant = restaurant)
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(ChezVousSpacing.sm))
 
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = restaurant?.name ?: "Restaurant",
+                    text = restaurant?.name ?: stringResource(R.string.restaurant),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -449,16 +543,51 @@ private fun RestaurantHeader(restaurant: Restaurant?) {
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xs))
 
                 RestaurantInfoRow(restaurant = restaurant)
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xs))
 
                 Text(
-                    text = "Commande min. ${restaurant?.minimumOrder ?: 0.0} DH",
+                    text = stringResource(
+                        R.string.minimum_order_format,
+                        (restaurant?.minimumOrder ?: 0.0).asDhPrice()
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RestaurantHeaderImage(restaurant: Restaurant?) {
+    Surface(
+        modifier = Modifier
+            .width(124.dp)
+            .fillMaxHeight(),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        if (restaurant?.imageUrl?.isNotBlank() == true) {
+            AsyncImage(
+                model = restaurant.imageUrl,
+                contentDescription = restaurant.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Restaurant,
+                    contentDescription = null,
+                    modifier = Modifier.size(ChezVousSize.iconLg),
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -520,12 +649,12 @@ private fun EmptyMenuState() {
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Aucun plat trouve",
+            text = stringResource(R.string.no_menu_item_found),
             style = MaterialTheme.typography.titleMedium
         )
 
         Text(
-            text = "Essayez une autre categorie ou recherche.",
+            text = stringResource(R.string.try_other_menu_search),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

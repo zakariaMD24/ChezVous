@@ -13,7 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.example.chezvous.R
+import com.example.chezvous.ui.theme.ChezVousSpacing
 
 class ActiveFilterChipItem(
     val label: String,
@@ -29,11 +31,11 @@ fun ActiveFilterChipRow(
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)
     ) {
         LazyRow(
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)
         ) {
             items(filters) { filter ->
                 InputChip(
@@ -43,7 +45,7 @@ fun ActiveFilterChipRow(
                     trailingIcon = {
                         Icon(
                             imageVector = Icons.Outlined.Close,
-                            contentDescription = "Retirer"
+                            contentDescription = stringResource(R.string.remove_filter)
                         )
                     }
                 )
@@ -51,7 +53,7 @@ fun ActiveFilterChipRow(
         }
 
         TextButton(onClick = onClearAll) {
-            Text("Tout effacer")
+            Text(stringResource(R.string.clear_all))
         }
     }
 }

@@ -1,9 +1,13 @@
 package com.example.chezvous.ui.components
 
+import java.util.Locale
+import kotlin.math.round
+
 fun Double.asDhPrice(): String {
-    return if (this % 1.0 == 0.0) {
-        "${toInt()} DH"
+    val rounded = round(this * 100) / 100
+    return if (rounded % 1.0 == 0.0) {
+        "${rounded.toInt()} DH"
     } else {
-        "$this DH"
+        String.format(Locale.US, "%.2f DH", rounded)
     }
 }

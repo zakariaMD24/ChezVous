@@ -8,5 +8,10 @@ data class FoodItem(
     val price: Double = 0.0,
     val category: String = "",
     val imageUrl: String = "",
-    val isAvailable: Boolean = true
+    val isAvailable: Boolean = true,
+    val extraOptions: List<CustomizationOption> = emptyList(),
+    val removableIngredients: List<String> = emptyList(),
+    val spiceLevels: List<String> = emptyList(),
+    val removableIngredientOptions: List<CustomizationOption> = emptyList(),
+    val spiceLevelOptions: List<CustomizationOption> = emptyList()
 )
