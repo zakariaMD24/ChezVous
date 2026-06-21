@@ -51,11 +51,21 @@ class AuthRepository(
         password: String
     ): Result<Unit> {
         return try {
-            firebaseAuth
+            val authResult = firebaseAuth
                 .signInWithEmailAndPassword(email, password)
                 .await()
+            val firebaseUser = authResult.user
+                ?: return Result.failure(IllegalStateException("Utilisateur introuvable"))
 
-            Result.success(Unit)
+            userRepository.createUserIfMissing(
+                User(
+                    id = firebaseUser.uid,
+                    fullName = firebaseUser.displayName.orEmpty(),
+                    email = firebaseUser.email ?: email,
+                    phone = firebaseUser.phoneNumber.orEmpty(),
+                    role = UserRoles.CUSTOMER
+                )
+            )
         } catch (e: Exception) {
             Result.failure(e)
         }

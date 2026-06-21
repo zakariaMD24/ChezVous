@@ -32,8 +32,6 @@ object FakeFoodData {
         "https://images.unsplash.com/photo-1587324438673-56c78a866b15?auto=format&fit=crop&w=500&q=80"
     private const val ICE_IMAGE =
         "https://images.unsplash.com/photo-1514846326710-096e4a8035e0?auto=format&fit=crop&w=500&q=80"
-    private const val CHILI_IMAGE =
-        "https://images.unsplash.com/photo-1583119022894-919a68a3d0e3?auto=format&fit=crop&w=500&q=80"
 
     private val burgerExtras = listOf(
         CustomizationOption(id = "egg", name = "Oeuf", price = 5.0, imageUrl = EGG_IMAGE),
@@ -49,39 +47,6 @@ object FakeFoodData {
         CustomizationOption(id = "cheese", name = "Fromage", imageUrl = CHEESE_IMAGE)
     )
     private val burgerRemovables = burgerRemovableOptions.map { it.name }
-    private val spiceLevelOptions = listOf(
-        CustomizationOption(
-            id = "none",
-            name = "Sans",
-            imageUrl = "",
-            description = "Aucun piquant"
-        ),
-        CustomizationOption(
-            id = "mild",
-            name = "Doux",
-            imageUrl = CHILI_IMAGE,
-            description = "Leger et agreable"
-        ),
-        CustomizationOption(
-            id = "medium",
-            name = "Moyen",
-            imageUrl = CHILI_IMAGE,
-            description = "Equilibre"
-        ),
-        CustomizationOption(
-            id = "hot",
-            name = "Fort",
-            imageUrl = CHILI_IMAGE,
-            description = "Ca commence a piquer"
-        ),
-        CustomizationOption(
-            id = "very-spicy",
-            name = "Tres fort",
-            imageUrl = CHILI_IMAGE,
-            description = "Pour les amateurs de piquant"
-        )
-    )
-    private val spiceLevels = spiceLevelOptions.map { it.name }
     private val drinkExtras = listOf(
         CustomizationOption(id = "ice", name = "Glacons", price = 0.0, imageUrl = ICE_IMAGE),
         CustomizationOption(id = "lemon", name = "Citron", price = 2.0, imageUrl = LEMON_IMAGE)
@@ -99,7 +64,8 @@ object FakeFoodData {
             cuisineType = "Fast Food",
             rating = 4.6,
             deliveryTime = "25-35 min",
-            minimumOrder = 30.0
+            minimumOrder = 30.0,
+            imageUrl = BURGER_IMAGE
         ),
         Restaurant(
             id = "casa-pizza",
@@ -107,7 +73,8 @@ object FakeFoodData {
             cuisineType = "Pizza",
             rating = 4.4,
             deliveryTime = "30-40 min",
-            minimumOrder = 40.0
+            minimumOrder = 40.0,
+            imageUrl = PIZZA_IMAGE
         ),
         Restaurant(
             id = "healthy-bowl",
@@ -115,7 +82,8 @@ object FakeFoodData {
             cuisineType = "Healthy",
             rating = 4.8,
             deliveryTime = "20-30 min",
-            minimumOrder = 35.0
+            minimumOrder = 35.0,
+            imageUrl = BOWL_IMAGE
         )
     )
 
@@ -128,11 +96,10 @@ object FakeFoodData {
             price = 45.0,
             category = "Burgers",
             imageUrl = BURGER_IMAGE,
+            isSpiceLevelEnabled = true,
             extraOptions = burgerExtras,
             removableIngredients = burgerRemovables,
-            spiceLevels = spiceLevels,
-            removableIngredientOptions = burgerRemovableOptions,
-            spiceLevelOptions = spiceLevelOptions
+            removableIngredientOptions = burgerRemovableOptions
         ),
         FoodItem(
             id = "chicken-burger",
@@ -142,11 +109,10 @@ object FakeFoodData {
             price = 42.0,
             category = "Burgers",
             imageUrl = BURGER_IMAGE,
+            isSpiceLevelEnabled = true,
             extraOptions = burgerExtras,
             removableIngredients = burgerRemovables,
-            spiceLevels = spiceLevels,
-            removableIngredientOptions = burgerRemovableOptions,
-            spiceLevelOptions = spiceLevelOptions
+            removableIngredientOptions = burgerRemovableOptions
         ),
         FoodItem(
             id = "margherita",
@@ -156,19 +122,18 @@ object FakeFoodData {
             price = 55.0,
             category = "Pizzas",
             imageUrl = PIZZA_IMAGE,
+            isSpiceLevelEnabled = true,
             extraOptions = listOf(
                 CustomizationOption(id = "cheese", name = "Fromage extra", price = 8.0, imageUrl = CHEESE_IMAGE),
                 CustomizationOption(id = "egg", name = "Oeuf", price = 5.0, imageUrl = EGG_IMAGE),
                 CustomizationOption(id = "sauce", name = "Sauce piquante", price = 3.0, imageUrl = SAUCE_IMAGE)
             ),
             removableIngredients = listOf("Tomate", "Mozzarella", "Basilic"),
-            spiceLevels = spiceLevels,
             removableIngredientOptions = listOf(
                 CustomizationOption(id = "tomato", name = "Tomate", imageUrl = TOMATO_IMAGE),
                 CustomizationOption(id = "mozzarella", name = "Mozzarella", imageUrl = CHEESE_IMAGE),
                 CustomizationOption(id = "basil", name = "Basilic", imageUrl = SALAD_IMAGE)
-            ),
-            spiceLevelOptions = spiceLevelOptions
+            )
         ),
         FoodItem(
             id = "pepperoni",
@@ -178,19 +143,18 @@ object FakeFoodData {
             price = 68.0,
             category = "Pizzas",
             imageUrl = PIZZA_IMAGE,
+            isSpiceLevelEnabled = true,
             extraOptions = listOf(
                 CustomizationOption(id = "cheese", name = "Fromage extra", price = 8.0, imageUrl = CHEESE_IMAGE),
                 CustomizationOption(id = "pepperoni", name = "Pepperoni extra", price = 10.0, imageUrl = PROTEIN_IMAGE),
                 CustomizationOption(id = "sauce", name = "Sauce piquante", price = 3.0, imageUrl = SAUCE_IMAGE)
             ),
             removableIngredients = listOf("Pepperoni", "Mozzarella", "Sauce tomate"),
-            spiceLevels = spiceLevels,
             removableIngredientOptions = listOf(
                 CustomizationOption(id = "pepperoni", name = "Pepperoni", imageUrl = PROTEIN_IMAGE),
                 CustomizationOption(id = "mozzarella", name = "Mozzarella", imageUrl = CHEESE_IMAGE),
                 CustomizationOption(id = "tomato-sauce", name = "Sauce tomate", imageUrl = SAUCE_IMAGE)
-            ),
-            spiceLevelOptions = spiceLevelOptions
+            )
         ),
         FoodItem(
             id = "salmon-bowl",
@@ -200,19 +164,18 @@ object FakeFoodData {
             price = 72.0,
             category = "Bowls",
             imageUrl = BOWL_IMAGE,
+            isSpiceLevelEnabled = true,
             extraOptions = listOf(
                 CustomizationOption(id = "egg", name = "Oeuf", price = 5.0, imageUrl = EGG_IMAGE),
                 CustomizationOption(id = "salmon", name = "Saumon extra", price = 18.0, imageUrl = PROTEIN_IMAGE),
                 CustomizationOption(id = "avocado", name = "Avocat extra", price = 8.0, imageUrl = BOWL_IMAGE)
             ),
             removableIngredients = listOf("Avocat", "Legumes", "Sauce soja"),
-            spiceLevels = spiceLevels,
             removableIngredientOptions = listOf(
                 CustomizationOption(id = "avocado", name = "Avocat", imageUrl = BOWL_IMAGE),
                 CustomizationOption(id = "vegetables", name = "Legumes", imageUrl = SALAD_IMAGE),
                 CustomizationOption(id = "soy-sauce", name = "Sauce soja", imageUrl = SAUCE_IMAGE)
-            ),
-            spiceLevelOptions = spiceLevelOptions
+            )
         ),
         FoodItem(
             id = "veggie-bowl",
@@ -222,19 +185,18 @@ object FakeFoodData {
             price = 58.0,
             category = "Bowls",
             imageUrl = BOWL_IMAGE,
+            isSpiceLevelEnabled = true,
             extraOptions = listOf(
                 CustomizationOption(id = "egg", name = "Oeuf", price = 5.0, imageUrl = EGG_IMAGE),
                 CustomizationOption(id = "chickpeas", name = "Pois chiches extra", price = 6.0, imageUrl = PROTEIN_IMAGE),
                 CustomizationOption(id = "avocado", name = "Avocat extra", price = 8.0, imageUrl = BOWL_IMAGE)
             ),
             removableIngredients = listOf("Avocat", "Pois chiches", "Legumes"),
-            spiceLevels = spiceLevels,
             removableIngredientOptions = listOf(
                 CustomizationOption(id = "avocado", name = "Avocat", imageUrl = BOWL_IMAGE),
                 CustomizationOption(id = "chickpeas", name = "Pois chiches", imageUrl = PROTEIN_IMAGE),
                 CustomizationOption(id = "vegetables", name = "Legumes", imageUrl = SALAD_IMAGE)
-            ),
-            spiceLevelOptions = spiceLevelOptions
+            )
         ),
         FoodItem(
             id = "coca-cola",

@@ -33,6 +33,8 @@ email: String
 phone: String
 address: String
 role: String
+managedRestaurantIds: List<String>
+driverId: String
 ```
 
 Allowed roles:
@@ -40,14 +42,48 @@ Allowed roles:
 ```text
 CUSTOMER
 PARTNER
+RESTAURANT_ADMIN
+CHEF
+DRIVER
 ADMIN
 ```
+
+`DRIVER` is an active login role. A driver user must also have `driverId` set to the matching document in the `drivers` collection.
+`CHEF` is an active kitchen role. A chef user uses `managedRestaurantIds` to access only assigned kitchen queues.
 
 Purpose:
 
 - Customer profile.
 - Delivery address.
 - Partner/admin permissions.
+- Restaurant-specific management access through `managedRestaurantIds`.
+- Kitchen access through `managedRestaurantIds` for `CHEF`.
+- Driver dashboard access through `driverId`.
+
+Security note:
+
+- A user can create only their own `CUSTOMER` profile.
+- A user can update only normal profile fields: `fullName`, `phone` and `address`.
+- Only global `ADMIN` accounts should change `role`, `managedRestaurantIds` or `driverId`.
+
+Example restaurant admin user:
+
+```text
+role: "RESTAURANT_ADMIN"
+managedRestaurantIds: ["burger-house"]
+```
+
+This user can manage only Burger House orders and menu items. A global `ADMIN` can manage every restaurant.
+
+Example driver user:
+
+```text
+role: "DRIVER"
+managedRestaurantIds: []
+driverId: "driver-yassine"
+```
+
+This user can use the delivery dashboard for assigned orders linked to `driver-yassine`.
 
 ## restaurants
 
@@ -135,6 +171,9 @@ paymentMethod: String
 paymentStatus: String
 status: String
 driverId: String
+pickupCode: String
+pickupCodeValidation: String
+pickupCodeValidatedAt: Number
 estimatedDeliveryTime: String
 createdAt: Number
 ```
@@ -145,6 +184,7 @@ Order status values:
 PENDING
 CONFIRMED
 PREPARING
+READY_FOR_PICKUP
 ON_THE_WAY
 DELIVERED
 CANCELLED
@@ -165,6 +205,8 @@ Purpose:
 - Order details.
 - Real-time delivery tracking.
 - Partner dashboard order updates.
+- Driver dashboard delivery updates.
+- Kitchen dashboard preparation and QR/code pickup validation.
 
 ## drivers
 
@@ -191,6 +233,14 @@ Purpose:
 
 - Tracking screen driver card.
 - Estimated delivery workflow.
+- Admin-managed delivery driver list.
+- Linked driver account availability.
+
+Write access:
+
+- Global `ADMIN` can create, update and delete driver records.
+- A linked `DRIVER` account can update only its own `isAvailable` flag.
+- Signed-in users can read driver records for tracking and operational screens.
 
 ## Seeding Behavior
 

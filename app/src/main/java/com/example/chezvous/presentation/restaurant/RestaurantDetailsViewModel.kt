@@ -88,7 +88,7 @@ class RestaurantDetailsViewModel : ViewModel() {
             viewModelScope.launch {
                 userRepository.observeUser(userId).collect { user ->
                     _uiState.update {
-                        it.copy(canOrder = user?.role.isCustomerOrderRole())
+                        it.copy(canOrder = UserRoles.canOrderAsCustomer(user?.role))
                     }
                 }
             }
@@ -98,11 +98,14 @@ class RestaurantDetailsViewModel : ViewModel() {
     fun loadRestaurant(restaurantId: String) {
         if (restaurantId.isBlank() || restaurantId == currentRestaurantId) return
 
+        val previousState = _uiState.value
         currentRestaurantId = restaurantId
         allMenuItems = repository.getMenuItems(restaurantId)
         _uiState.value = RestaurantDetailsUiState(
             isLoading = true,
-            restaurant = repository.getRestaurant(restaurantId)
+            restaurant = repository.getRestaurant(restaurantId),
+            cartItemCount = previousState.cartItemCount,
+            canOrder = previousState.canOrder
         )
 
         restaurantJob?.cancel()
@@ -299,8 +302,4 @@ private fun MenuSortOption.comparator(): Comparator<FoodItem> {
         MenuSortOption.NAME_A_Z -> compareBy { it.name.lowercase() }
         MenuSortOption.AVAILABLE_FIRST -> compareByDescending { it.isAvailable }
     }
-}
-
-private fun String?.isCustomerOrderRole(): Boolean {
-    return this != UserRoles.PARTNER && this != UserRoles.ADMIN
 }

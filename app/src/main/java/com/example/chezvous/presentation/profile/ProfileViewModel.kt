@@ -2,7 +2,6 @@ package com.example.chezvous.presentation.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.chezvous.data.model.User
 import com.example.chezvous.data.model.UserRoles
 import com.example.chezvous.data.repository.AuthRepository
 import com.example.chezvous.data.repository.UserRepository
@@ -20,6 +19,7 @@ data class ProfileUiState(
     val phone: String = "",
     val address: String = "",
     val role: String = UserRoles.CUSTOMER,
+    val managedRestaurantIds: List<String> = emptyList(),
     val errorMessage: String? = null,
     val successMessage: String? = null
 )
@@ -55,15 +55,11 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, errorMessage = null, successMessage = null)
 
-            val result = userRepository.saveUser(
-                User(
-                    id = state.userId,
-                    fullName = state.fullName.trim(),
-                    email = state.email,
-                    phone = state.phone.trim(),
-                    address = state.address.trim(),
-                    role = state.role
-                )
+            val result = userRepository.updateUserProfile(
+                userId = state.userId,
+                fullName = state.fullName.trim(),
+                phone = state.phone.trim(),
+                address = state.address.trim()
             )
 
             _uiState.value = if (result.isSuccess) {
@@ -108,7 +104,8 @@ class ProfileViewModel : ViewModel() {
                         email = user.email,
                         phone = user.phone,
                         address = user.address,
-                        role = user.role
+                        role = user.role,
+                        managedRestaurantIds = user.managedRestaurantIds
                     )
                 } else {
                     _uiState.value.copy(

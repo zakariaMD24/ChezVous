@@ -4,6 +4,7 @@ import com.example.chezvous.data.model.User
 import com.example.chezvous.data.model.UserRoles
 import com.example.chezvous.data.remote.FirestoreCollections
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -30,6 +31,35 @@ class UserRepository(
             awaitClose { registration.remove() }
         }.catch {
             emit(null)
+        }
+    }
+
+    fun observeUsers(): Flow<List<User>> {
+        return callbackFlow {
+            val registration = firestore
+                .collection(FirestoreCollections.USERS)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+
+                    val users = snapshot.documents
+                        .mapNotNull { document ->
+                            document.toObject(User::class.java)
+                                ?.copy(id = document.id)
+                        }
+                        .sortedWith(
+                            compareBy<User> { it.role }
+                                .thenBy { it.fullName.ifBlank { it.email }.lowercase() }
+                        )
+
+                    trySend(users)
+                }
+
+            awaitClose { registration.remove() }
+        }.catch {
+            emit(emptyList())
         }
     }
 
@@ -71,6 +101,14 @@ class UserRepository(
                     if (existingUser?.role.isNullOrBlank()) {
                         put("role", UserRoles.CUSTOMER)
                     }
+
+                    if (!snapshot.contains("managedRestaurantIds")) {
+                        put("managedRestaurantIds", emptyList<String>())
+                    }
+
+                    if (!snapshot.contains("driverId")) {
+                        put("driverId", "")
+                    }
                 }
 
                 if (missingFields.isNotEmpty()) {
@@ -100,6 +138,29 @@ class UserRepository(
                         "phone" to phone,
                         "address" to address
                     )
+                )
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateUserAccess(
+        user: User
+    ): Result<Unit> {
+        return try {
+            firestore
+                .collection(FirestoreCollections.USERS)
+                .document(user.id)
+                .set(
+                    mapOf(
+                        "role" to user.role,
+                        "managedRestaurantIds" to user.managedRestaurantIds,
+                        "driverId" to user.driverId
+                    ),
+                    SetOptions.merge()
                 )
                 .await()
 

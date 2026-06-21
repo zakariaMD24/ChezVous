@@ -14,6 +14,8 @@ data class Order(
     val paymentStatus: PaymentStatus = PaymentStatus.PENDING,
     val status: OrderStatus = OrderStatus.PENDING,
     val driverId: String = "",
+    val pickupCode: String = "",
+    val pickupCodeValidatedAt: Long = 0L,
     val estimatedDeliveryTime: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
@@ -22,6 +24,7 @@ enum class OrderStatus {
     PENDING,
     CONFIRMED,
     PREPARING,
+    READY_FOR_PICKUP,
     ON_THE_WAY,
     DELIVERED,
     CANCELLED

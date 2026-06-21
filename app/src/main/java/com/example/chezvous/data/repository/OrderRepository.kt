@@ -85,6 +85,68 @@ class OrderRepository(
         }
     }
 
+    fun observeDriverOrders(driverId: String): Flow<List<Order>> {
+        return callbackFlow {
+            val registration = firestore
+                .collection(FirestoreCollections.ORDERS)
+                .whereEqualTo("driverId", driverId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) {
+                        trySend(
+                            fallbackOrders.value
+                                .filter { it.driverId == driverId }
+                                .sortedByDescending { it.createdAt }
+                        )
+                        return@addSnapshotListener
+                    }
+
+                    val orders = snapshot.documents
+                        .mapNotNull { it.toOrder() }
+                        .sortedByDescending { it.createdAt }
+                    trySend(orders)
+                }
+
+            awaitClose { registration.remove() }
+        }.catch {
+            emit(
+                fallbackOrders.value
+                    .filter { it.driverId == driverId }
+                    .sortedByDescending { it.createdAt }
+            )
+        }
+    }
+
+    fun observeReadyForPickupOrders(): Flow<List<Order>> {
+        return callbackFlow {
+            val registration = firestore
+                .collection(FirestoreCollections.ORDERS)
+                .whereEqualTo("status", OrderStatus.READY_FOR_PICKUP.name)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) {
+                        trySend(
+                            fallbackOrders.value
+                                .filter { it.status == OrderStatus.READY_FOR_PICKUP }
+                                .sortedByDescending { it.createdAt }
+                        )
+                        return@addSnapshotListener
+                    }
+
+                    val orders = snapshot.documents
+                        .mapNotNull { it.toOrder() }
+                        .sortedByDescending { it.createdAt }
+                    trySend(orders)
+                }
+
+            awaitClose { registration.remove() }
+        }.catch {
+            emit(
+                fallbackOrders.value
+                    .filter { it.status == OrderStatus.READY_FOR_PICKUP }
+                    .sortedByDescending { it.createdAt }
+            )
+        }
+    }
+
     fun observeOrder(orderId: String): Flow<Order?> {
         return callbackFlow {
             val registration = firestore
@@ -113,15 +175,15 @@ class OrderRepository(
                 firestore.collection(FirestoreCollections.ORDERS).document(order.id)
             }
 
-            val orderWithId = order.copy(id = document.id)
+            val orderWithId = order.copy(
+                id = document.id,
+                pickupCode = order.pickupCode.ifBlank { document.id.toPickupCode() }
+            )
             document.set(orderWithId.toFirestoreMap()).await()
 
             Result.success(document.id)
         } catch (e: Exception) {
-            val fallbackId = order.id.ifBlank { "local-${System.currentTimeMillis()}" }
-            val fallbackOrder = order.copy(id = fallbackId)
-            fallbackOrders.value = fallbackOrders.value + fallbackOrder
-            Result.success(fallbackId)
+            Result.failure(e)
         }
     }
 
@@ -138,10 +200,54 @@ class OrderRepository(
 
             Result.success(Unit)
         } catch (e: Exception) {
-            fallbackOrders.value = fallbackOrders.value.map { order ->
-                if (order.id == orderId) order.copy(status = status) else order
+            Result.failure(e)
+        }
+    }
+
+    suspend fun validatePickup(
+        orderId: String,
+        pickupCode: String,
+        driverId: String
+    ): Result<Unit> {
+        return try {
+            val document = firestore
+                .collection(FirestoreCollections.ORDERS)
+                .document(orderId)
+            val order = document.get().await().toOrder()
+                ?: return Result.failure(IllegalArgumentException("Commande introuvable."))
+            val cleanCode = pickupCode.trim().uppercase()
+            val cleanDriverId = driverId.trim()
+
+            if (order.status != OrderStatus.READY_FOR_PICKUP) {
+                return Result.failure(IllegalArgumentException("La commande n'est pas prete."))
             }
+
+            if (cleanDriverId.isBlank()) {
+                return Result.failure(IllegalArgumentException("Livreur introuvable."))
+            }
+
+            if (order.driverId.isNotBlank() && order.driverId != cleanDriverId) {
+                return Result.failure(IllegalArgumentException("Cette commande est assignee a un autre livreur."))
+            }
+
+            if (order.pickupCode.uppercase() != cleanCode) {
+                return Result.failure(IllegalArgumentException("Code de retrait incorrect."))
+            }
+
+            document
+                .update(
+                    mapOf(
+                        "status" to OrderStatus.ON_THE_WAY.name,
+                        "driverId" to cleanDriverId,
+                        "pickupCodeValidation" to cleanCode,
+                        "pickupCodeValidatedAt" to System.currentTimeMillis()
+                    )
+                )
+                .await()
+
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -160,6 +266,8 @@ class OrderRepository(
             "paymentStatus" to paymentStatus.name,
             "status" to status.name,
             "driverId" to driverId,
+            "pickupCode" to pickupCode,
+            "pickupCodeValidatedAt" to pickupCodeValidatedAt,
             "estimatedDeliveryTime" to estimatedDeliveryTime,
             "createdAt" to createdAt
         )
@@ -189,6 +297,7 @@ class OrderRepository(
             "category" to category,
             "imageUrl" to imageUrl,
             "isAvailable" to isAvailable,
+            "isSpiceLevelEnabled" to isSpiceLevelEnabled,
             "extraOptions" to extraOptions.map { it.toFirestoreMap() },
             "removableIngredients" to removableIngredients,
             "spiceLevels" to spiceLevels,
@@ -223,6 +332,8 @@ class OrderRepository(
             paymentStatus = snapshotData.paymentStatusValue("paymentStatus"),
             status = snapshotData.orderStatusValue("status"),
             driverId = snapshotData.stringValue("driverId"),
+            pickupCode = snapshotData.stringValue("pickupCode").ifBlank { id.toPickupCode() },
+            pickupCodeValidatedAt = snapshotData.longValue("pickupCodeValidatedAt", 0L),
             estimatedDeliveryTime = snapshotData.stringValue("estimatedDeliveryTime"),
             createdAt = snapshotData.longValue("createdAt")
         )
@@ -246,6 +357,7 @@ class OrderRepository(
                     category = foodMap.stringValue("category"),
                     imageUrl = foodMap.stringValue("imageUrl"),
                     isAvailable = foodMap.booleanValue("isAvailable", true),
+                    isSpiceLevelEnabled = foodMap.booleanValue("isSpiceLevelEnabled", false),
                     extraOptions = foodMap.customizationOptionsValue("extraOptions"),
                     removableIngredients = foodMap.stringListValue("removableIngredients"),
                     spiceLevels = foodMap.stringListValue("spiceLevels"),
@@ -287,6 +399,13 @@ class OrderRepository(
         return (this[key] as? Number)?.toLong() ?: System.currentTimeMillis()
     }
 
+    private fun Map<*, *>.longValue(
+        key: String,
+        defaultValue: Long
+    ): Long {
+        return (this[key] as? Number)?.toLong() ?: defaultValue
+    }
+
     private fun Map<*, *>.intValue(key: String): Int {
         return (this[key] as? Number)?.toInt() ?: 0
     }
@@ -317,5 +436,11 @@ class OrderRepository(
                 )
             }
             .orEmpty()
+    }
+
+    private fun String.toPickupCode(): String {
+        return takeLast(6)
+            .uppercase()
+            .padStart(6, '0')
     }
 }

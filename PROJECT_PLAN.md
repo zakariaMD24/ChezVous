@@ -280,30 +280,70 @@ Tasks:
 
 - Add user roles:
   - customer;
-  - partner/admin.
+  - partner;
+  - restaurant admin;
+  - chef;
+  - delivery driver;
+  - global admin.
 - Add partner dashboard.
+- Add kitchen dashboard.
+- Add driver dashboard.
 - View incoming restaurant orders.
+- Filter incoming orders by status.
 - Update order status.
 - Add/manage menu items.
+- Filter menu items by category.
+- Manage restaurant settings.
+- Manage user access from the admin dashboard.
 - Update item availability.
 - Edit item price and description.
+- Let global admin add and update delivery drivers.
 
 Done when:
 
 - A partner can manage menu items.
+- A partner can filter menu items by category.
+- A partner can filter received orders by status.
 - A partner can update order status.
+- A chef can prepare confirmed orders and mark them ready for pickup.
+- A ready order shows a pickup QR/code for driver validation.
+- A driver can see assigned deliveries and update delivery status.
+- A global admin can manage the delivery driver list.
+- A global admin can assign roles, scoped restaurants and driver accounts.
+- A global admin can update restaurant settings.
 - Customer tracking updates after partner changes status.
 
 Current implementation note:
 
-- User roles `CUSTOMER`, `PARTNER` and `ADMIN` are supported in the user profile model.
-- Home shows the partner dashboard shortcut for users with role `PARTNER` or `ADMIN`.
-- Partner dashboard is implemented with restaurant selection.
+- User roles `CUSTOMER`, `PARTNER`, `RESTAURANT_ADMIN`, `CHEF`, `DRIVER` and `ADMIN` are supported in the user profile model.
+- `PARTNER` and `RESTAURANT_ADMIN` accounts use `managedRestaurantIds` to limit access to assigned restaurants.
+- `CHEF` accounts use `managedRestaurantIds` to limit access to assigned kitchen queues.
+- `DRIVER` accounts use `driverId` to link an authenticated user to one delivery driver record.
+- `ADMIN` accounts keep global restaurant management access.
+- Customer navigation shows ordering screens; management roles see management/profile navigation; delivery users see delivery/profile navigation.
+- Home shows the partner dashboard shortcut for users with role `PARTNER`, `RESTAURANT_ADMIN` or `ADMIN`.
+- Partner dashboard starts with restaurant selection filtered by the current user's role and assignments.
+- After choosing a restaurant, management is split into clear areas: restaurant settings, menu management, received orders, admin-only delivery drivers and admin-only user access.
 - Partner dashboard shows incoming restaurant orders in real time.
+- Incoming restaurant orders can be categorized by status with filter chips.
 - Partners can update order status through the normal delivery flow.
 - Partner order status updates reuse Firestore, so customer tracking updates live.
 - Partners can add menu items, edit name/description/category/price and update availability.
-- Firestore rules already require partner/admin role for menu and order management writes.
+- Menu management can be categorized by dish category with filter chips.
+- Global admins can add/edit delivery drivers and toggle driver availability.
+- Global admins can assign app roles, scoped restaurant access and linked driver accounts.
+- Global admins can update restaurant name, cuisine, delivery time, image URL and open/closed status.
+- Chefs can open a dedicated kitchen dashboard, move orders from confirmed to preparation, and mark them ready for pickup.
+- Ready-for-pickup orders show a scannable QR code and text pickup code.
+- Drivers can open a dedicated delivery dashboard, toggle their own availability and move assigned orders to `ON_THE_WAY` and `DELIVERED`.
+- Drivers must validate the pickup code before an order moves to `ON_THE_WAY`.
+- Checkout assigns an available delivery driver from the managed driver list when one exists.
+- Order creation and status updates now surface Firestore write failures instead of pretending a local transaction succeeded.
+- User profile updates only write profile fields; role and restaurant assignment changes stay admin-controlled.
+- Firestore rules require assigned-restaurant access for menu and order management writes.
+- Firestore rules allow global admins to write delivery driver records and linked drivers to update only their own availability.
+- Firestore rules allow assigned linked drivers to read assigned orders and update only delivery status transitions.
+- Firestore rules prevent normal users from creating or editing their own elevated roles.
 
 ## Phase 9: Design System And Responsive UI
 
@@ -361,15 +401,16 @@ Current implementation note:
 - Food item customization is implemented:
   - extras such as egg, cheese, extra protein and sauce;
   - removed ingredients such as tomato, onion, sauce, salad and cheese;
-  - spice level selection;
+  - optional spice level selection;
   - custom instruction text.
 - Customization now has an image-backed bottom sheet with food imagery, visual extra cards, visual removable ingredient cards, a slider-style spice level panel and a base/extras/total price summary.
 - Customization content is database-backed:
   - `extraOptions`;
   - `removableIngredientOptions`;
-  - `spiceLevelOptions`.
+  - `isSpiceLevelEnabled` for showing the standard spice selector.
 - Each customization option can store `id`, `name`, `price`, `imageUrl` and `description`.
-- Partners can manage menu item image URLs, extra option names/prices/images/descriptions, removable ingredient names/images/descriptions and spice level names/images/descriptions from the menu editor.
+- Spice levels are not managed as Firestore option records. When enabled for a dish, the app displays the fixed scale: mild, medium, spicy and extra spicy. The selected spice level is stored only on the cart/order line.
+- Partners can manage menu item image URLs, extra option names/prices/images/descriptions, removable ingredient names/images/descriptions and whether spice level selection is enabled from the menu editor.
 - Customized items are stored as separate cart lines, saved in Firestore orders and shown to partners.
 - Drinks are modeled as normal menu items using the `Boissons` category and appear in a dedicated drinks section at the end of the restaurant menu.
 - Partner/admin users can view menus, but customer ordering is disabled in partner mode.

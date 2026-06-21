@@ -82,10 +82,7 @@ fun FoodCustomizationSheet(
     val safeSpiceIndex = spiceIndex.roundToInt()
         .coerceIn(0, spiceOptions.lastIndex.coerceAtLeast(0))
 
-    val selectedSpice = spiceOptions
-        .getOrNull(safeSpiceIndex)
-        ?.name
-        .orEmpty()
+    val selectedSpice = spiceOptions.getOrNull(safeSpiceIndex)?.name.orEmpty()
 
     val extrasTotal = selectedExtras.sumOf { it.price }
     val finalUnitPrice = foodItem.price + extrasTotal
@@ -478,13 +475,13 @@ private fun SpiceLevelSlider(
     selectedIndex: Int,
     onSelectedIndexChange: (Int) -> Unit
 ) {
-    val safeOptions = options.ifEmpty {
-        listOf(CustomizationOption(id = "none", name = "Sans"))
-    }
+    if (options.isEmpty()) return
+
+    val safeOptions = options
     val lastIndex = safeOptions.lastIndex.coerceAtLeast(0)
     val safeSelectedIndex = selectedIndex.coerceIn(0, lastIndex)
     val selectedOption = safeOptions[safeSelectedIndex]
-    val tone = spiceTone(safeSelectedIndex, lastIndex)
+    val tone = standardSpiceTone(safeSelectedIndex, lastIndex)
     val description = selectedOption.description.ifBlank {
         defaultSpiceDescription(safeSelectedIndex, lastIndex)
     }
@@ -558,9 +555,10 @@ private fun SpiceLevelSlider(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                safeOptions.forEachIndexed { index, _ ->
-                    val itemTone = spiceTone(index, lastIndex)
+                safeOptions.forEachIndexed { index, option ->
+                    val itemTone = standardSpiceTone(index, lastIndex)
                     Column(
+                        modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -569,7 +567,7 @@ private fun SpiceLevelSlider(
                         )
 
                         Text(
-                            text = index.toString(),
+                            text = option.name,
                             style = MaterialTheme.typography.labelSmall,
                             color = if (index == safeSelectedIndex) {
                                 tone.color
@@ -580,7 +578,9 @@ private fun SpiceLevelSlider(
                                 FontWeight.Bold
                             } else {
                                 FontWeight.Normal
-                            }
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -627,15 +627,41 @@ private fun spiceTone(index: Int, lastIndex: Int): SpiceTone {
     }
 }
 
+private fun standardSpiceTone(index: Int, lastIndex: Int): SpiceTone {
+    val ratio = if (lastIndex <= 0) 0f else index.toFloat() / lastIndex.toFloat()
+
+    return when {
+        ratio <= 0f -> SpiceTone(
+            color = Color(0xFF2E7D32),
+            container = Color(0xFFE8F5E9),
+            icon = "\uD83C\uDF36\uFE0F"
+        )
+        ratio < 0.5f -> SpiceTone(
+            color = Color(0xFFF57F17),
+            container = Color(0xFFFFF8E1),
+            icon = "\uD83C\uDF36\uFE0F"
+        )
+        ratio < 0.85f -> SpiceTone(
+            color = Color(0xFFEF6C00),
+            container = Color(0xFFFFF3E0),
+            icon = "\uD83C\uDF36\uFE0F"
+        )
+        else -> SpiceTone(
+            color = Color(0xFFC62828),
+            container = Color(0xFFFFEBEE),
+            icon = "\uD83C\uDF36\uFE0F\uD83D\uDD25"
+        )
+    }
+}
+
 @Composable
 private fun defaultSpiceDescription(index: Int, lastIndex: Int): String {
     val ratio = if (lastIndex <= 0) 0f else index.toFloat() / lastIndex.toFloat()
 
     return when {
-        ratio <= 0f -> stringResource(R.string.spice_description_none)
-        ratio < 0.34f -> stringResource(R.string.spice_description_mild)
-        ratio < 0.67f -> stringResource(R.string.spice_description_medium)
-        ratio < 0.9f -> stringResource(R.string.spice_description_hot)
+        ratio <= 0f -> stringResource(R.string.spice_description_mild)
+        ratio < 0.5f -> stringResource(R.string.spice_description_medium)
+        ratio < 0.85f -> stringResource(R.string.spice_description_hot)
         else -> stringResource(R.string.spice_description_very_hot)
     }
 }
@@ -734,15 +760,47 @@ private fun FoodItem.availableRemovableIngredientOptions(): List<CustomizationOp
     }
 }
 
+@Composable
 private fun FoodItem.availableSpiceLevelOptions(): List<CustomizationOption> {
-    return spiceLevelOptions.ifEmpty {
-        spiceLevels.map { level ->
+    if (!hasSpiceLevelSelection()) return emptyList()
+
+    if (spiceLevelOptions.isNotEmpty()) return spiceLevelOptions
+
+    if (spiceLevels.isNotEmpty()) {
+        return spiceLevels.map { level ->
             CustomizationOption(
                 id = level.toOptionKey(),
                 name = level
             )
         }
     }
+
+    return listOf(
+        CustomizationOption(
+            id = "mild",
+            name = stringResource(R.string.spice_mild),
+            description = stringResource(R.string.spice_description_mild)
+        ),
+        CustomizationOption(
+            id = "medium",
+            name = stringResource(R.string.spice_normal),
+            description = stringResource(R.string.spice_description_medium)
+        ),
+        CustomizationOption(
+            id = "spicy",
+            name = stringResource(R.string.spice_spicy),
+            description = stringResource(R.string.spice_description_hot)
+        ),
+        CustomizationOption(
+            id = "extra-spicy",
+            name = stringResource(R.string.spice_very_spicy),
+            description = stringResource(R.string.spice_description_very_hot)
+        )
+    )
+}
+
+private fun FoodItem.hasSpiceLevelSelection(): Boolean {
+    return isSpiceLevelEnabled || spiceLevelOptions.isNotEmpty() || spiceLevels.isNotEmpty()
 }
 
 private fun String.toOptionKey(): String {

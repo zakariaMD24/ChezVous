@@ -38,6 +38,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun CartScreen(
     onBack: () -> Unit,
+    showBackButton: Boolean = true,
     onCheckoutReady: () -> Unit = {}
 ) {
     val viewModel: CartViewModel = viewModel()
@@ -54,7 +55,7 @@ fun CartScreen(
         topBar = {
             ChezVousTopBar(
                 title = "Panier",
-                onBack = onBack,
+                onBack = if (showBackButton) onBack else null,
                 actions = {
                     if (!uiState.isEmpty) {
                         TextButton(onClick = viewModel::clearCart) {

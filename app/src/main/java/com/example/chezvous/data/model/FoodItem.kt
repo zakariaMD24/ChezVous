@@ -9,6 +9,7 @@ data class FoodItem(
     val category: String = "",
     val imageUrl: String = "",
     val isAvailable: Boolean = true,
+    val isSpiceLevelEnabled: Boolean = false,
     val extraOptions: List<CustomizationOption> = emptyList(),
     val removableIngredients: List<String> = emptyList(),
     val spiceLevels: List<String> = emptyList(),

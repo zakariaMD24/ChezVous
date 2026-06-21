@@ -434,6 +434,14 @@ fun homeActiveFilterItems(
     viewModel: HomeViewModel
 ): List<ActiveFilterChipItem> {
     return buildList {
+        if (uiState.selectedCuisine != ALL_CUISINES) {
+            add(
+                ActiveFilterChipItem(uiState.selectedCuisine.localizedCuisineLabel()) {
+                    viewModel.clearCuisineFilter()
+                }
+            )
+        }
+
         if (uiState.minimumRating > MIN_RATING_FILTER) {
             add(
                 ActiveFilterChipItem(

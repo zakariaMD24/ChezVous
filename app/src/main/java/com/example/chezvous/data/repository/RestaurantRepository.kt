@@ -47,6 +47,20 @@ class RestaurantRepository(
         return FakeFoodData.restaurants.firstOrNull { it.id == restaurantId }
     }
 
+    suspend fun updateRestaurant(restaurant: Restaurant): Result<Unit> {
+        return try {
+            firestore
+                .collection(FirestoreCollections.RESTAURANTS)
+                .document(restaurant.id)
+                .set(restaurant, SetOptions.merge())
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun observeAllMenuItems(): Flow<List<FoodItem>> {
         return callbackFlow {
             val registration = firestore
@@ -206,6 +220,7 @@ class RestaurantRepository(
             "category" to category,
             "imageUrl" to imageUrl,
             "isAvailable" to isAvailable,
+            "isSpiceLevelEnabled" to isSpiceLevelEnabled,
             "extraOptions" to extraOptions.map { option ->
                 option.toFirestoreMap()
             },

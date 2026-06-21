@@ -25,11 +25,12 @@ fun PaymentMethodCard(
     icon: ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     ChezVousCard(
         modifier = modifier,
-        onClick = onClick,
+        onClick = if (enabled) onClick else null,
         containerColor = if (selected) {
             MaterialTheme.colorScheme.primaryContainer
         } else {
@@ -71,7 +72,8 @@ fun PaymentMethodCard(
 
             RadioButton(
                 selected = selected,
-                onClick = onClick
+                onClick = if (enabled) onClick else null,
+                enabled = enabled
             )
         }
     }

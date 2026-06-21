@@ -63,9 +63,9 @@ data class CheckoutUiState(
             val addressIsValid = deliveryAddress.trim().length >= 8
             val cardIsValid = paymentMethod != CheckoutPaymentMethod.CARD ||
                     (cardHolder.trim().isNotBlank() &&
-                            cardNumber.onlyDigits().length >= 12 &&
-                            cardExpiry.trim().length >= 4 &&
-                            cardCvv.onlyDigits().length >= 3)
+                            cardNumber.onlyDigits().length in 13..16 &&
+                            cardExpiry.isValidCardExpiry() &&
+                            cardCvv.onlyDigits().length in 3..4)
 
             return !isLoading &&
                     !isSuccess &&
@@ -119,6 +119,7 @@ class CheckoutViewModel : ViewModel() {
                 }
             }
         }
+
     }
 
     fun onDeliveryAddressChange(value: String) {
@@ -154,9 +155,10 @@ class CheckoutViewModel : ViewModel() {
     }
 
     fun onCardExpiryChange(value: String) {
+        val digits = value.onlyDigits().take(4)
         _uiState.update {
             it.copy(
-                cardExpiry = value.take(5),
+                cardExpiry = digits.formatCardExpiry(),
                 errorMessage = null
             )
         }
@@ -210,7 +212,6 @@ class CheckoutViewModel : ViewModel() {
                 CheckoutPaymentMethod.CARD -> PaymentStatus.PAID
                 CheckoutPaymentMethod.CASH_ON_DELIVERY -> PaymentStatus.CASH_ON_DELIVERY
             }
-
             val order = Order(
                 userId = userId,
                 restaurantId = restaurant.id,
@@ -223,7 +224,7 @@ class CheckoutViewModel : ViewModel() {
                 paymentMethod = state.paymentMethod.firestoreValue,
                 paymentStatus = paymentStatus,
                 status = OrderStatus.PENDING,
-                driverId = "driver-yassine",
+                driverId = "",
                 estimatedDeliveryTime = restaurant.deliveryTime
             )
 
@@ -252,4 +253,22 @@ class CheckoutViewModel : ViewModel() {
 
 private fun String.onlyDigits(): String {
     return filter { it.isDigit() }
+}
+
+private fun String.formatCardExpiry(): String {
+    return if (length <= 2) {
+        this
+    } else {
+        "${take(2)}/${drop(2)}"
+    }
+}
+
+private fun String.isValidCardExpiry(): Boolean {
+    val parts = split("/")
+    if (parts.size != 2) return false
+
+    val month = parts[0].toIntOrNull() ?: return false
+    val year = parts[1].toIntOrNull() ?: return false
+
+    return month in 1..12 && year in 0..99
 }

@@ -22,7 +22,10 @@ Implemented in the app:
   - credential state clearing on logout.
 - User role field:
   - `CUSTOMER` by default.
-  - `PARTNER` and `ADMIN` prepared for later restaurant management.
+  - `PARTNER` and `RESTAURANT_ADMIN` for assigned restaurant management.
+  - `CHEF` for assigned kitchen command preparation.
+  - `DRIVER` for a linked delivery account.
+  - `ADMIN` for global restaurant management.
 
 ## Firestore User Document
 
@@ -41,7 +44,16 @@ email: String
 phone: String
 address: String
 role: String
+managedRestaurantIds: List<String>
+driverId: String
 ```
+
+Role management rules:
+
+- New users are created as `CUSTOMER`.
+- `PARTNER`, `RESTAURANT_ADMIN` and `CHEF` need at least one `managedRestaurantIds` entry.
+- `DRIVER` needs `driverId` set to a document from `drivers/{driverId}`.
+- Only a global `ADMIN` should assign elevated roles, restaurant access or driver links.
 
 ## Google Login
 
@@ -86,6 +98,8 @@ email: String
 phone: String
 address: String
 role: "CUSTOMER"
+managedRestaurantIds: []
+driverId: ""
 ```
 
 ## Facebook Login

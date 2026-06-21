@@ -45,6 +45,7 @@ import com.example.chezvous.ui.theme.ChezVousSpacing
 @Composable
 fun AllRestaurantsScreen(
     onBack: () -> Unit,
+    showBackButton: Boolean = true,
     onRestaurantClick: (String) -> Unit
 ) {
     val viewModel: HomeViewModel = viewModel()
@@ -56,7 +57,7 @@ fun AllRestaurantsScreen(
         topBar = {
             ChezVousTopBar(
                 title = stringResource(R.string.all_restaurants),
-                onBack = onBack
+                onBack = if (showBackButton) onBack else null
             )
         }
     ) { paddingValues ->

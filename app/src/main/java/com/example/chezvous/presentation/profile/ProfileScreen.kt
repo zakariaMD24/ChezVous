@@ -40,6 +40,7 @@ import com.example.chezvous.ui.theme.ChezVousSpacing
 @Composable
 fun ProfileScreen(
     onBack: () -> Unit,
+    showBackButton: Boolean = true,
     onLoggedOut: () -> Unit
 ) {
     val viewModel: ProfileViewModel = viewModel()
@@ -52,9 +53,11 @@ fun ProfileScreen(
         if (uiState.isLoggedOut) onLoggedOut()
     }
 
+    val resolvedOnBack = if (showBackButton) onBack else null
+
     ProfileContent(
         uiState = uiState,
-        onBack = onBack,
+        onBack = resolvedOnBack,
         onFullNameChange = viewModel::onFullNameChange,
         onPhoneChange = viewModel::onPhoneChange,
         onAddressChange = viewModel::onAddressChange,
@@ -66,7 +69,7 @@ fun ProfileScreen(
 @Composable
 private fun ProfileContent(
     uiState: ProfileUiState,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onFullNameChange: (String) -> Unit,
     onPhoneChange: (String) -> Unit,
     onAddressChange: (String) -> Unit,

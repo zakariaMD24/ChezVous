@@ -108,7 +108,7 @@ class HomeViewModel : ViewModel() {
             viewModelScope.launch {
                 userRepository.observeUser(userId).collect { user ->
                     _uiState.update {
-                        it.copy(showPartnerDashboard = user?.role.isPartnerRole())
+                        it.copy(showPartnerDashboard = UserRoles.canUsePartnerDashboard(user?.role))
                     }
                 }
             }
@@ -339,8 +339,4 @@ private fun Double.formatOneDecimal(): String {
     } else {
         String.format(java.util.Locale.US, "%.1f", this)
     }
-}
-
-private fun String?.isPartnerRole(): Boolean {
-    return this == UserRoles.PARTNER || this == UserRoles.ADMIN
 }

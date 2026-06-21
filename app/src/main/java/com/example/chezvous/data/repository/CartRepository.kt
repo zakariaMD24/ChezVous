@@ -34,6 +34,7 @@ object CartRepository {
             return CartActionResult.Error("Ce plat n'est pas disponible.")
         }
 
+        val normalizedInstruction = specialInstruction.trim().take(120)
         val currentRestaurant = _restaurant.value
         if (_cartItems.value.isNotEmpty() && currentRestaurant?.id != restaurant.id) {
             return CartActionResult.Error(
@@ -47,7 +48,7 @@ object CartRepository {
             selectedExtras = selectedExtras,
             removedIngredients = removedIngredients,
             spiceLevel = spiceLevel,
-            specialInstruction = specialInstruction
+            specialInstruction = normalizedInstruction
         )
         val existingItem = _cartItems.value.firstOrNull { it.lineId == lineId }
         _cartItems.value = if (existingItem == null) {
@@ -58,7 +59,7 @@ object CartRepository {
                 selectedExtras = selectedExtras,
                 removedIngredients = removedIngredients,
                 spiceLevel = spiceLevel,
-                specialInstruction = specialInstruction.take(120)
+                specialInstruction = normalizedInstruction
             )
         } else {
             _cartItems.value.map { item ->

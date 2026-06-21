@@ -130,7 +130,8 @@ private fun CheckoutContent(
                 label = "Adresse complete",
                 leadingIcon = Icons.Outlined.LocationOn,
                 singleLine = false,
-                imeAction = ImeAction.Next
+                imeAction = ImeAction.Next,
+                enabled = !uiState.isLoading
             )
         }
 
@@ -144,6 +145,7 @@ private fun CheckoutContent(
                     description = CheckoutPaymentMethod.CARD.description,
                     icon = Icons.Outlined.CreditCard,
                     selected = uiState.paymentMethod == CheckoutPaymentMethod.CARD,
+                    enabled = !uiState.isLoading,
                     onClick = { onPaymentMethodSelected(CheckoutPaymentMethod.CARD) }
                 )
 
@@ -152,6 +154,7 @@ private fun CheckoutContent(
                     description = CheckoutPaymentMethod.CASH_ON_DELIVERY.description,
                     icon = Icons.Outlined.Payments,
                     selected = uiState.paymentMethod == CheckoutPaymentMethod.CASH_ON_DELIVERY,
+                    enabled = !uiState.isLoading,
                     onClick = {
                         onPaymentMethodSelected(CheckoutPaymentMethod.CASH_ON_DELIVERY)
                     }
@@ -241,7 +244,8 @@ private fun CardPaymentFields(
             value = uiState.cardHolder,
             onValueChange = onCardHolderChange,
             label = "Nom sur la carte",
-            leadingIcon = Icons.Outlined.CreditCard
+            leadingIcon = Icons.Outlined.CreditCard,
+            enabled = !uiState.isLoading
         )
 
         ChezVousTextField(
@@ -249,7 +253,8 @@ private fun CardPaymentFields(
             onValueChange = onCardNumberChange,
             label = "Numero de carte",
             leadingIcon = Icons.Outlined.CreditCard,
-            keyboardType = KeyboardType.Number
+            keyboardType = KeyboardType.Number,
+            enabled = !uiState.isLoading
         )
 
         Row(
@@ -261,6 +266,7 @@ private fun CardPaymentFields(
                 onValueChange = onCardExpiryChange,
                 label = "MM/AA",
                 keyboardType = KeyboardType.Text,
+                enabled = !uiState.isLoading,
                 modifier = Modifier.weight(1f)
             )
 
@@ -270,6 +276,7 @@ private fun CardPaymentFields(
                 label = "CVV",
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Done,
+                enabled = !uiState.isLoading,
                 modifier = Modifier.weight(1f)
             )
         }

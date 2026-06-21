@@ -154,6 +154,7 @@ fun OrderStatus.customerLabel(): String {
         OrderStatus.PENDING -> "En attente"
         OrderStatus.CONFIRMED -> "Confirmee"
         OrderStatus.PREPARING -> "Preparation"
+        OrderStatus.READY_FOR_PICKUP -> "Pret au retrait"
         OrderStatus.ON_THE_WAY -> "En route"
         OrderStatus.DELIVERED -> "Livree"
         OrderStatus.CANCELLED -> "Annulee"
@@ -182,6 +183,11 @@ private fun orderStatusSteps(): List<OrderStatusStep> {
             status = OrderStatus.PREPARING,
             title = "Preparation",
             description = "Le restaurant prepare vos plats."
+        ),
+        OrderStatusStep(
+            status = OrderStatus.READY_FOR_PICKUP,
+            title = "Pret au retrait",
+            description = "La cuisine a termine et attend le livreur."
         ),
         OrderStatusStep(
             status = OrderStatus.ON_THE_WAY,

@@ -23,12 +23,20 @@ fun ChezVousTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Next,
     singleLine: Boolean = true,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    isError: Boolean = false,
+    supportingText: String? = null
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
+        supportingText = supportingText?.let { text ->
+            {
+                Text(text)
+            }
+        },
+        isError = isError,
         leadingIcon = leadingIcon?.let { icon ->
             {
                 Icon(icon, contentDescription = null)

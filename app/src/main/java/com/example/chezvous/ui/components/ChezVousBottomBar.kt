@@ -1,6 +1,7 @@
 package com.example.chezvous.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeliveryDining
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.ReceiptLong
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.example.chezvous.R
+import com.example.chezvous.data.model.UserRoles
 import com.example.chezvous.navigation.ChezVousRoutes
 
 class ChezVousBottomBarItem(
@@ -28,35 +30,77 @@ class ChezVousBottomBarItem(
 fun ChezVousBottomBar(
     currentRoute: String?,
     cartItemCount: Int,
+    role: String = UserRoles.CUSTOMER,
     onNavigate: (String) -> Unit
 ) {
-    val items = listOf(
-        ChezVousBottomBarItem(
-            route = ChezVousRoutes.HOME,
-            label = stringResource(R.string.nav_home),
-            icon = Icons.Outlined.Home
-        ),
-        ChezVousBottomBarItem(
-            route = ChezVousRoutes.RESTAURANTS,
-            label = stringResource(R.string.nav_explore),
-            icon = Icons.Outlined.Restaurant
-        ),
-        ChezVousBottomBarItem(
-            route = ChezVousRoutes.ORDERS,
-            label = stringResource(R.string.nav_orders),
-            icon = Icons.Outlined.ReceiptLong
-        ),
-        ChezVousBottomBarItem(
-            route = ChezVousRoutes.CART,
-            label = stringResource(R.string.nav_cart),
-            icon = Icons.Outlined.ShoppingCart
-        ),
-        ChezVousBottomBarItem(
-            route = ChezVousRoutes.PROFILE,
-            label = stringResource(R.string.nav_profile),
-            icon = Icons.Outlined.Person
+    val items = if (UserRoles.canUsePartnerDashboard(role)) {
+        listOf(
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.PARTNER_DASHBOARD,
+                label = stringResource(R.string.partner_space),
+                icon = Icons.Outlined.Restaurant
+            ),
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.PROFILE,
+                label = stringResource(R.string.nav_profile),
+                icon = Icons.Outlined.Person
+            )
         )
-    )
+    } else if (UserRoles.canUseKitchenDashboard(role)) {
+        listOf(
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.KITCHEN_DASHBOARD,
+                label = stringResource(R.string.nav_kitchen),
+                icon = Icons.Outlined.Restaurant
+            ),
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.PROFILE,
+                label = stringResource(R.string.nav_profile),
+                icon = Icons.Outlined.Person
+            )
+        )
+    } else if (UserRoles.canUseDriverDashboard(role)) {
+        listOf(
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.DELIVERY_DASHBOARD,
+                label = stringResource(R.string.nav_delivery),
+                icon = Icons.Outlined.DeliveryDining
+            ),
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.PROFILE,
+                label = stringResource(R.string.nav_profile),
+                icon = Icons.Outlined.Person
+            )
+        )
+    } else {
+        listOf(
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.HOME,
+                label = stringResource(R.string.nav_home),
+                icon = Icons.Outlined.Home
+            ),
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.RESTAURANTS,
+                label = stringResource(R.string.nav_explore),
+                icon = Icons.Outlined.Restaurant
+            ),
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.ORDERS,
+                label = stringResource(R.string.nav_orders),
+                icon = Icons.Outlined.ReceiptLong
+            ),
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.CART,
+                label = stringResource(R.string.nav_cart),
+                icon = Icons.Outlined.ShoppingCart
+            ),
+            ChezVousBottomBarItem(
+                route = ChezVousRoutes.PROFILE,
+                label = stringResource(R.string.nav_profile),
+                icon = Icons.Outlined.Person
+            )
+        )
+    }
 
     NavigationBar {
         items.forEach { item ->

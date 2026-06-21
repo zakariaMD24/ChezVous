@@ -23,6 +23,7 @@ fun PartnerOrderCard(
     order: Order,
     nextStatus: OrderStatus?,
     onUpdateStatus: (OrderStatus) -> Unit,
+    isSaving: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     ChezVousCard(modifier = modifier) {
@@ -122,6 +123,7 @@ fun PartnerOrderCard(
             if (nextStatus != null) {
                 Button(
                     onClick = { onUpdateStatus(nextStatus) },
+                    enabled = !isSaving,
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.small
                 ) {
@@ -135,9 +137,10 @@ fun PartnerOrderCard(
 fun OrderStatus.nextPartnerStatus(): OrderStatus? {
     return when (this) {
         OrderStatus.PENDING -> OrderStatus.CONFIRMED
-        OrderStatus.CONFIRMED -> OrderStatus.PREPARING
-        OrderStatus.PREPARING -> OrderStatus.ON_THE_WAY
-        OrderStatus.ON_THE_WAY -> OrderStatus.DELIVERED
+        OrderStatus.CONFIRMED,
+        OrderStatus.PREPARING,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.ON_THE_WAY,
         OrderStatus.DELIVERED,
         OrderStatus.CANCELLED -> null
     }
@@ -147,6 +150,7 @@ private fun OrderStatus.partnerActionLabel(): String {
     return when (this) {
         OrderStatus.CONFIRMED -> "Confirmer"
         OrderStatus.PREPARING -> "Passer en preparation"
+        OrderStatus.READY_FOR_PICKUP -> "Pret au retrait"
         OrderStatus.ON_THE_WAY -> "Marquer en route"
         OrderStatus.DELIVERED -> "Marquer livree"
         else -> customerLabel()

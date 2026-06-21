@@ -41,6 +41,7 @@ import java.util.Locale
 @Composable
 fun OrdersScreen(
     onBack: () -> Unit,
+    showBackButton: Boolean = true,
     onOrderClick: (String) -> Unit
 ) {
     val viewModel: OrdersViewModel = viewModel()
@@ -50,7 +51,7 @@ fun OrdersScreen(
         topBar = {
             ChezVousTopBar(
                 title = "Mes commandes",
-                onBack = onBack
+                onBack = if (showBackButton) onBack else null
             )
         }
     ) { paddingValues ->

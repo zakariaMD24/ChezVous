@@ -29,6 +29,7 @@ fun PartnerMenuItemCard(
     foodItem: FoodItem,
     onAvailabilityChange: (Boolean) -> Unit,
     onEditClick: () -> Unit,
+    isSaving: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val removableCount = foodItem.removableIngredientOptions
@@ -38,13 +39,7 @@ fun PartnerMenuItemCard(
             }
         }
         .size
-    val spiceCount = foodItem.spiceLevelOptions
-        .ifEmpty {
-            foodItem.spiceLevels.map { level ->
-                com.example.chezvous.data.model.CustomizationOption(name = level)
-            }
-        }
-        .size
+    val spiceCount = if (foodItem.hasSpiceLevelSelection()) 4 else 0
 
     ChezVousCard(modifier = modifier) {
         Column(
@@ -104,7 +99,8 @@ fun PartnerMenuItemCard(
 
                 Switch(
                     checked = foodItem.isAvailable,
-                    onCheckedChange = onAvailabilityChange
+                    onCheckedChange = onAvailabilityChange,
+                    enabled = !isSaving
                 )
             }
 
@@ -112,6 +108,7 @@ fun PartnerMenuItemCard(
 
             OutlinedButton(
                 onClick = onEditClick,
+                enabled = !isSaving,
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.small
             ) {
@@ -119,4 +116,8 @@ fun PartnerMenuItemCard(
             }
         }
     }
+}
+
+private fun FoodItem.hasSpiceLevelSelection(): Boolean {
+    return isSpiceLevelEnabled || spiceLevelOptions.isNotEmpty() || spiceLevels.isNotEmpty()
 }
