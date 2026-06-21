@@ -12,6 +12,7 @@ object ChezVousRoutes {
     const val ORDERS = "orders"
     const val RESTAURANTS = "restaurants"
     const val PARTNER_DASHBOARD = "partner-dashboard"
+    const val ADMIN_DASHBOARD = "admin-dashboard"
     const val RESTAURANT_ID_ARG = "restaurantId"
     const val ORDER_ID_ARG = "orderId"
     const val RESTAURANT_DETAILS = "restaurant/{$RESTAURANT_ID_ARG}"

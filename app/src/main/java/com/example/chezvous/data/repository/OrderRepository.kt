@@ -1,8 +1,10 @@
 package com.example.chezvous.data.repository
 
+import com.example.chezvous.data.model.AppNotification
 import com.example.chezvous.data.model.CartItem
 import com.example.chezvous.data.model.CustomizationOption
 import com.example.chezvous.data.model.FoodItem
+import com.example.chezvous.data.model.NotificationType
 import com.example.chezvous.data.model.Order
 import com.example.chezvous.data.model.OrderStatus
 import com.example.chezvous.data.model.PaymentStatus
@@ -17,7 +19,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.tasks.await
 
 class OrderRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val notificationRepository: NotificationRepository = NotificationRepository()
 ) {
     private companion object {
         val fallbackOrders = MutableStateFlow<List<Order>>(emptyList())
@@ -115,6 +118,26 @@ class OrderRepository(
 
             val orderWithId = order.copy(id = document.id)
             document.set(orderWithId.toFirestoreMap()).await()
+
+            // Fetch user name for the notification body (best-effort)
+            val customerName = runCatching {
+                firestore.collection(FirestoreCollections.USERS)
+                    .document(order.userId)
+                    .get()
+                    .await()
+                    .getString("fullName")
+                    ?.takeIf { it.isNotBlank() }
+            }.getOrNull() ?: "Un client"
+
+            notificationRepository.pushNotification(
+                AppNotification(
+                    type = NotificationType.NEW_ORDER,
+                    title = "Nouvelle commande",
+                    body = "$customerName a passé une commande chez ${order.restaurantName}",
+                    relatedUserId = order.userId,
+                    createdAt = System.currentTimeMillis()
+                )
+            )
 
             Result.success(document.id)
         } catch (e: Exception) {

@@ -1,5 +1,7 @@
 package com.example.chezvous.data.repository
 
+import com.example.chezvous.data.model.AppNotification
+import com.example.chezvous.data.model.NotificationType
 import com.example.chezvous.data.model.User
 import com.example.chezvous.data.model.UserRoles
 import com.google.firebase.auth.FirebaseAuth
@@ -7,7 +9,8 @@ import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.tasks.await
 
 class AuthRepository(
-    private val userRepository: UserRepository = UserRepository()
+    private val userRepository: UserRepository = UserRepository(),
+    private val notificationRepository: NotificationRepository = NotificationRepository()
 ) {
 
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -33,7 +36,7 @@ class AuthRepository(
             val firebaseUser = authResult.user
                 ?: return Result.failure(IllegalStateException("Utilisateur introuvable"))
 
-            userRepository.saveUser(
+            val saveResult = userRepository.saveUser(
                 User(
                     id = firebaseUser.uid,
                     fullName = fullName,
@@ -41,6 +44,20 @@ class AuthRepository(
                     role = UserRoles.CUSTOMER
                 )
             )
+
+            if (saveResult.isSuccess) {
+                notificationRepository.pushNotification(
+                    AppNotification(
+                        type = NotificationType.NEW_USER,
+                        title = "Nouvel utilisateur",
+                        body = "$fullName vient de s'inscrire",
+                        relatedUserId = firebaseUser.uid,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            saveResult
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,12 +71,17 @@ import com.example.chezvous.ui.theme.ChezVousSpacing
 fun HomeScreen(
     onRestaurantClick: (String) -> Unit = {},
     onViewAllRestaurants: () -> Unit = {},
-    onPartnerClick: () -> Unit = {}
+    onPartnerClick: () -> Unit = {},
+    onAdminDetected: () -> Unit = {}
 ) {
     val viewModel: HomeViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.isAdminUser) {
+        if (uiState.isAdminUser) onAdminDetected()
+    }
 
     Scaffold(
         topBar = {

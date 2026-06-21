@@ -2,6 +2,8 @@ package com.example.chezvous.presentation.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.MaterialTheme
@@ -12,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.chezvous.R
 import com.example.chezvous.ui.components.ChezVousButton
@@ -19,7 +23,7 @@ import com.example.chezvous.ui.components.ChezVousEmailField
 import com.example.chezvous.ui.components.ChezVousPasswordField
 import com.example.chezvous.ui.components.ChezVousTextField
 import com.example.chezvous.ui.components.GoogleSignInButton
-import com.example.chezvous.ui.components.chezVousSheetPadding
+import com.example.chezvous.ui.components.OrDivider
 import com.example.chezvous.ui.theme.ChezVousSize
 import com.example.chezvous.ui.theme.ChezVousSpacing
 
@@ -57,36 +61,23 @@ fun AuthLayout(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .chezVousSheetPadding(),
-            verticalArrangement = Arrangement.Center,
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            AuthHeaderBand(subtitle = subtitle)
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = ChezVousSize.maxFormWidth),
+                    .widthIn(max = ChezVousSize.maxFormWidth)
+                    .padding(horizontal = ChezVousSpacing.sheetHorizontal)
+                    .padding(vertical = ChezVousSpacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
-                    contentDescription = "Logo ChezVous",
-                    modifier = Modifier.size(110.dp)
-                )
-
-                Spacer(modifier = Modifier.height(ChezVousSpacing.xs))
-
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Spacer(modifier = Modifier.height(ChezVousSpacing.xxs))
-
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(ChezVousSpacing.lg))
@@ -138,7 +129,11 @@ fun AuthLayout(
                 )
 
                 if (onGoogleClick != null) {
-                    Spacer(modifier = Modifier.height(ChezVousSpacing.sm))
+                    Spacer(modifier = Modifier.height(ChezVousSpacing.md))
+
+                    OrDivider()
+
+                    Spacer(modifier = Modifier.height(ChezVousSpacing.md))
 
                     GoogleSignInButton(
                         enabled = !isLoading,
@@ -155,6 +150,47 @@ fun AuthLayout(
                     Text(text = switchText)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AuthHeaderBand(subtitle: String) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(ChezVousSpacing.xl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "Logo ChezVous",
+                modifier = Modifier.size(72.dp)
+            )
+
+            Spacer(modifier = Modifier.height(ChezVousSpacing.xs))
+
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Spacer(modifier = Modifier.height(ChezVousSpacing.xxs))
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
     }
 }

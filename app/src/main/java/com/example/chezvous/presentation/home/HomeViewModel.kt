@@ -47,7 +47,8 @@ data class HomeUiState(
     val onlyOpen: Boolean = false,
     val sortOption: RestaurantSortOption = RestaurantSortOption.RECOMMENDED,
     val cartItemCount: Int = 0,
-    val showPartnerDashboard: Boolean = false
+    val showPartnerDashboard: Boolean = false,
+    val isAdminUser: Boolean = false
 ) {
     val activeFilterCount: Int
         get() = listOf(
@@ -108,7 +109,10 @@ class HomeViewModel : ViewModel() {
             viewModelScope.launch {
                 userRepository.observeUser(userId).collect { user ->
                     _uiState.update {
-                        it.copy(showPartnerDashboard = user?.role.isPartnerRole())
+                        it.copy(
+                            showPartnerDashboard = user?.role.isPartnerRole(),
+                            isAdminUser = user?.role == UserRoles.ADMIN
+                        )
                     }
                 }
             }

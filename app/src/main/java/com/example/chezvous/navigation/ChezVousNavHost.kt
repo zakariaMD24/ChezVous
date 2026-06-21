@@ -5,6 +5,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -12,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.chezvous.data.repository.AuthRepository
 import com.example.chezvous.data.repository.CartRepository
 import com.example.chezvous.presentation.auth.LoginScreen
 import com.example.chezvous.presentation.auth.RegisterScreen
@@ -21,6 +23,7 @@ import com.example.chezvous.presentation.home.AllRestaurantsScreen
 import com.example.chezvous.presentation.home.HomeScreen
 import com.example.chezvous.presentation.orders.OrderTrackingScreen
 import com.example.chezvous.presentation.orders.OrdersScreen
+import com.example.chezvous.presentation.admin.AdminDashboardScreen
 import com.example.chezvous.presentation.partner.PartnerDashboardScreen
 import com.example.chezvous.presentation.profile.ProfileScreen
 import com.example.chezvous.presentation.restaurant.RestaurantDetailsScreen
@@ -32,6 +35,9 @@ fun ChezVousNavHost() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val cartItems by CartRepository.cartItems.collectAsState()
+    val startDestination = remember {
+        if (AuthRepository().isUserLoggedIn()) ChezVousRoutes.HOME else ChezVousRoutes.LOGIN
+    }
     val topLevelRoutes = setOf(
         ChezVousRoutes.HOME,
         ChezVousRoutes.RESTAURANTS,
@@ -63,7 +69,7 @@ fun ChezVousNavHost() {
     ) { rootPadding ->
         NavHost(
             navController = navController,
-            startDestination = ChezVousRoutes.LOGIN,
+            startDestination = startDestination,
             modifier = Modifier.padding(rootPadding)
         ) {
             composable(ChezVousRoutes.LOGIN) {
@@ -117,6 +123,11 @@ fun ChezVousNavHost() {
                     onPartnerClick = {
                         navController.navigate(ChezVousRoutes.PARTNER_DASHBOARD) {
                             launchSingleTop = true
+                        }
+                    },
+                    onAdminDetected = {
+                        navController.navigate(ChezVousRoutes.ADMIN_DASHBOARD) {
+                            popUpTo(ChezVousRoutes.HOME) { inclusive = true }
                         }
                     }
                 )
@@ -222,6 +233,16 @@ fun ChezVousNavHost() {
                 PartnerDashboardScreen(
                     onBack = {
                         navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(ChezVousRoutes.ADMIN_DASHBOARD) {
+                AdminDashboardScreen(
+                    onLoggedOut = {
+                        navController.navigate(ChezVousRoutes.LOGIN) {
+                            popUpTo(ChezVousRoutes.ADMIN_DASHBOARD) { inclusive = true }
+                        }
                     }
                 )
             }
