@@ -175,6 +175,7 @@ fun PartnerDashboardScreen(
                         editingUser = it
                         showUserEditor = true
                     },
+                    onUserSearchQueryChange = viewModel::onUserSearchQueryChange,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
@@ -267,6 +268,7 @@ private fun PartnerDashboardContent(
     onAddDriver: () -> Unit,
     onDriverAvailabilityChange: (Driver, Boolean) -> Unit,
     onEditUser: (User) -> Unit,
+    onUserSearchQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -337,6 +339,7 @@ private fun PartnerDashboardContent(
                 onBack = onBackToSections,
                 onChangeRestaurant = onChangeRestaurant,
                 onEditUser = onEditUser,
+                onUserSearchQueryChange = onUserSearchQueryChange,
                 modifier = modifier
             )
         }
@@ -962,20 +965,10 @@ private fun UsersManagementContent(
     onBack: () -> Unit,
     onChangeRestaurant: () -> Unit,
     onEditUser: (User) -> Unit,
+    onUserSearchQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var searchQuery by remember { mutableStateOf("") }
     var isSearchingUser by remember { mutableStateOf(false) }
-    val elevatedUsers = uiState.users.filter { it.role != UserRoles.CUSTOMER }
-    val searchResults = if (searchQuery.isBlank()) {
-        emptyList()
-    } else {
-        uiState.users.filter { user ->
-            user.email.contains(searchQuery.trim(), ignoreCase = true) ||
-                    user.fullName.contains(searchQuery.trim(), ignoreCase = true)
-        }
-    }
-    val visibleUsers = if (isSearchingUser) searchResults else elevatedUsers
 
     LazyColumn(
         modifier = modifier.chezVousScreenPadding(),
@@ -987,7 +980,7 @@ private fun UsersManagementContent(
                 subtitle = if (isSearchingUser) {
                     stringResource(R.string.partner_user_search_mode)
                 } else {
-                    stringResource(R.string.partner_users_roles_summary, elevatedUsers.size)
+                    stringResource(R.string.partner_users_roles_summary, uiState.users.size)
                 },
                 onBack = onBack,
                 onChangeRestaurant = onChangeRestaurant
@@ -1010,7 +1003,7 @@ private fun UsersManagementContent(
                 OutlinedButton(
                     onClick = {
                         isSearchingUser = !isSearchingUser
-                        searchQuery = ""
+                        onUserSearchQueryChange("")
                     },
                     modifier = Modifier.weight(1f)
                 ) {
@@ -1028,14 +1021,14 @@ private fun UsersManagementContent(
         if (isSearchingUser) {
             item {
                 ChezVousTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    value = uiState.userSearchQuery,
+                    onValueChange = onUserSearchQueryChange,
                     label = stringResource(R.string.partner_search_user)
                 )
             }
         }
 
-        if (visibleUsers.isEmpty()) {
+        if (uiState.users.isEmpty()) {
             item {
                 EmptyPartnerSection(
                     text = if (isSearchingUser) {
@@ -1047,7 +1040,7 @@ private fun UsersManagementContent(
             }
         }
 
-        items(visibleUsers) { user ->
+        items(uiState.users) { user ->
             UserAccessCard(
                 user = user,
                 restaurants = uiState.restaurants,
@@ -1118,8 +1111,7 @@ private fun UserAccessCard(
 
             if (
                 user.role == UserRoles.PARTNER ||
-                user.role == UserRoles.RESTAURANT_ADMIN ||
-                user.role == UserRoles.CHEF
+                user.role == UserRoles.DRIVER
             ) {
                 Text(
                     text = "Restaurants: $assignedRestaurants",
@@ -1802,10 +1794,8 @@ private fun UserAccessEditorSheet(
     var selectedDriverId by remember(user.id) {
         mutableStateOf(user.driverId)
     }
-    val needsRestaurants = selectedRole == UserRoles.PARTNER ||
-            selectedRole == UserRoles.RESTAURANT_ADMIN ||
-            selectedRole == UserRoles.CHEF
-    val needsDriver = selectedRole == UserRoles.DRIVER
+    val showRestaurantSelect = selectedRole == UserRoles.PARTNER
+    val showDriverSelect = selectedRole == UserRoles.DRIVER
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -1831,17 +1821,13 @@ private fun UserAccessEditorSheet(
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)
             ) {
-                items(editableRoles()) { role ->
+                items(listOf(UserRoles.CUSTOMER, UserRoles.PARTNER, UserRoles.DRIVER, UserRoles.ADMIN)) { role ->
                     CategoryChip(
                         text = role.roleDisplayLabel(),
                         selected = selectedRole == role,
                         onClick = {
                             selectedRole = role
-                            if (
-                                role != UserRoles.PARTNER &&
-                                role != UserRoles.RESTAURANT_ADMIN &&
-                                role != UserRoles.CHEF
-                            ) {
+                            if (role != UserRoles.PARTNER) {
                                 selectedRestaurantIds = emptySet()
                             }
                             if (role != UserRoles.DRIVER) {
@@ -1852,7 +1838,7 @@ private fun UserAccessEditorSheet(
                 }
             }
 
-            if (needsRestaurants) {
+            if (showRestaurantSelect) {
                 SectionTitle(text = "Restaurants assignes")
                 restaurants.forEach { restaurant ->
                     CategoryChip(
@@ -1869,7 +1855,7 @@ private fun UserAccessEditorSheet(
                 }
             }
 
-            if (needsDriver) {
+            if (showDriverSelect) {
                 SectionTitle(text = "Fiche livreur")
                 if (drivers.isEmpty()) {
                     Text(
@@ -1916,8 +1902,6 @@ private fun String.roleDisplayLabel(): String {
     return when (this) {
         UserRoles.CUSTOMER -> "Client"
         UserRoles.PARTNER -> "Partenaire"
-        UserRoles.RESTAURANT_ADMIN -> "Admin restaurant"
-        UserRoles.CHEF -> "Chef"
         UserRoles.DRIVER -> "Livreur"
         UserRoles.ADMIN -> "Admin global"
         else -> this

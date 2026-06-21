@@ -30,12 +30,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chezvous.R
 import com.example.chezvous.presentation.auth.rememberCredentialLogoutHandler
 import com.example.chezvous.ui.components.ChezVousButton
 import com.example.chezvous.ui.components.ChezVousTextField
 import com.example.chezvous.ui.components.ChezVousTopBar
 import com.example.chezvous.ui.components.chezVousScreenPadding
 import com.example.chezvous.ui.theme.ChezVousSpacing
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun ProfileScreen(
@@ -79,11 +81,11 @@ private fun ProfileContent(
     Scaffold(
         topBar = {
             ChezVousTopBar(
-                title = "Mon profil",
+                title = stringResource(R.string.profile_title),
                 onBack = onBack,
                 actions = {
                     IconButton(onClick = onLogout) {
-                        Icon(Icons.Outlined.Logout, contentDescription = "Deconnexion")
+                        Icon(Icons.Outlined.Logout, contentDescription = stringResource(R.string.profile_logout_desc))
                     }
                 }
             )
@@ -111,12 +113,12 @@ private fun ProfileContent(
                 verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
             ) {
                 Text(
-                    text = "Informations utilisateur",
+                    text = stringResource(R.string.profile_user_info_title),
                     style = MaterialTheme.typography.titleLarge
                 )
 
                 Text(
-                    text = "Ces informations seront utilisees pour vos commandes et livraisons.",
+                    text = stringResource(R.string.profile_user_info_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -126,14 +128,14 @@ private fun ProfileContent(
                 ChezVousTextField(
                     value = uiState.fullName,
                     onValueChange = onFullNameChange,
-                    label = "Nom complet",
+                    label = stringResource(R.string.profile_full_name),
                     leadingIcon = Icons.Outlined.Person
                 )
 
                 ChezVousTextField(
                     value = uiState.email,
                     onValueChange = {},
-                    label = "Adresse email",
+                    label = stringResource(R.string.profile_email),
                     leadingIcon = Icons.Outlined.Email,
                     keyboardType = KeyboardType.Email,
                     enabled = false
@@ -142,7 +144,7 @@ private fun ProfileContent(
                 ChezVousTextField(
                     value = uiState.phone,
                     onValueChange = onPhoneChange,
-                    label = "Telephone",
+                    label = stringResource(R.string.profile_phone),
                     leadingIcon = Icons.Outlined.Phone,
                     keyboardType = KeyboardType.Phone
                 )
@@ -150,7 +152,7 @@ private fun ProfileContent(
                 ChezVousTextField(
                     value = uiState.address,
                     onValueChange = onAddressChange,
-                    label = "Adresse de livraison",
+                    label = stringResource(R.string.profile_address),
                     leadingIcon = Icons.Outlined.Home,
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Done,
@@ -174,8 +176,8 @@ private fun ProfileContent(
                 }
 
                 ChezVousButton(
-                    text = "Enregistrer",
-                    loadingText = "Enregistrement...",
+                    text = stringResource(R.string.save),
+                    loadingText = stringResource(R.string.profile_saving),
                     isLoading = uiState.isSaving,
                     enabled = uiState.fullName.isNotBlank(),
                     onClick = onSave
@@ -183,7 +185,7 @@ private fun ProfileContent(
 
                 OutlinedButton(onClick = onLogout) {
                     Icon(Icons.Outlined.Logout, contentDescription = null)
-                    Text("Se deconnecter")
+                    Text(stringResource(R.string.profile_logout))
                 }
             }
         }

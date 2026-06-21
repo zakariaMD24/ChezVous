@@ -34,10 +34,21 @@ data class PartnerDashboardUiState(
     val users: List<User> = emptyList(),
     val isSaving: Boolean = false,
     val message: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val userSearchQuery: String = ""
 ) {
     val selectedRestaurant: Restaurant?
         get() = restaurants.firstOrNull { it.id == selectedRestaurantId }
+        
+    val visibleUsers: List<User>
+        get() = if (userSearchQuery.isBlank()) {
+            users.filter { it.role != UserRoles.CUSTOMER }
+        } else {
+            users.filter { 
+                it.email.contains(userSearchQuery, ignoreCase = true) || 
+                it.fullName.contains(userSearchQuery, ignoreCase = true) 
+            }
+        }
 }
 
 class PartnerDashboardViewModel : ViewModel() {
@@ -126,6 +137,10 @@ class PartnerDashboardViewModel : ViewModel() {
                     }
                 }
         }
+    }
+
+    fun onUserSearchQueryChange(query: String) {
+        _uiState.update { it.copy(userSearchQuery = query) }
     }
 
     fun updateItemAvailability(
@@ -412,11 +427,7 @@ class PartnerDashboardViewModel : ViewModel() {
         }
 
         val cleanRole = role.takeIf { it in editableRoles() } ?: UserRoles.CUSTOMER
-        val cleanRestaurantIds = if (
-            cleanRole == UserRoles.PARTNER ||
-            cleanRole == UserRoles.RESTAURANT_ADMIN ||
-            cleanRole == UserRoles.CHEF
-        ) {
+        val cleanRestaurantIds = if (cleanRole == UserRoles.PARTNER) {
             managedRestaurantIds.cleanRestaurantIds()
         } else {
             emptyList()
@@ -427,11 +438,7 @@ class PartnerDashboardViewModel : ViewModel() {
             ""
         }
 
-        if ((cleanRole == UserRoles.PARTNER ||
-                    cleanRole == UserRoles.RESTAURANT_ADMIN ||
-                    cleanRole == UserRoles.CHEF) &&
-            cleanRestaurantIds.isEmpty()
-        ) {
+        if (cleanRole == UserRoles.PARTNER && cleanRestaurantIds.isEmpty()) {
             _uiState.update {
                 it.copy(errorMessage = "Assignez au moins un restaurant pour ce role.")
             }
@@ -652,8 +659,6 @@ fun editableRoles(): List<String> {
     return listOf(
         UserRoles.CUSTOMER,
         UserRoles.PARTNER,
-        UserRoles.RESTAURANT_ADMIN,
-        UserRoles.CHEF,
         UserRoles.DRIVER,
         UserRoles.ADMIN
     )

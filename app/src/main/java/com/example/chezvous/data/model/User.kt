@@ -14,28 +14,36 @@ data class User(
 object UserRoles {
     const val CUSTOMER = "CUSTOMER"
     const val PARTNER = "PARTNER"
-    const val RESTAURANT_ADMIN = "RESTAURANT_ADMIN"
-    const val CHEF = "CHEF"
     const val DRIVER = "DRIVER"
     const val ADMIN = "ADMIN"
 
+    fun safeRole(role: String?): String {
+        return when (role) {
+            ADMIN -> ADMIN
+            PARTNER, "RESTAURANT_ADMIN", "CHEF" -> PARTNER
+            DRIVER -> DRIVER
+            else -> CUSTOMER
+        }
+    }
+
     fun canUsePartnerDashboard(role: String?): Boolean {
-        return role == PARTNER || role == RESTAURANT_ADMIN || role == ADMIN
+        val safe = safeRole(role)
+        return safe == PARTNER || safe == ADMIN
     }
 
     fun canUseDriverDashboard(role: String?): Boolean {
-        return role == DRIVER
+        return safeRole(role) == DRIVER
     }
 
     fun canUseKitchenDashboard(role: String?): Boolean {
-        return role == CHEF
+        return safeRole(role) == PARTNER
     }
 
     fun canOrderAsCustomer(role: String?): Boolean {
-        return role == null || role == CUSTOMER
+        return safeRole(role) == CUSTOMER
     }
 
     fun hasGlobalRestaurantAccess(role: String?): Boolean {
-        return role == ADMIN
+        return safeRole(role) == ADMIN
     }
 }
