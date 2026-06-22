@@ -28,9 +28,10 @@ import com.example.chezvous.ui.theme.ChezVousSpacing
 @Composable
 fun OrderStatusStepper(
     status: OrderStatus,
+    driverName: String = "",
     modifier: Modifier = Modifier
 ) {
-    val steps = orderStatusSteps()
+    val steps = orderStatusSteps(driverName = driverName)
     val currentIndex = steps.indexOfFirst { it.status == status }
 
     ChezVousCard(modifier = modifier) {
@@ -172,7 +173,7 @@ private data class OrderStatusStep(
 )
 
 @Composable
-private fun orderStatusSteps(): List<OrderStatusStep> {
+private fun orderStatusSteps(driverName: String): List<OrderStatusStep> {
     return listOf(
         OrderStatusStep(
             status = OrderStatus.PENDING,
@@ -197,17 +198,29 @@ private fun orderStatusSteps(): List<OrderStatusStep> {
         OrderStatusStep(
             status = OrderStatus.PICKED_UP,
             title = stringResource(R.string.order_step_picked_up_title),
-            description = stringResource(R.string.order_step_picked_up_description)
+            description = if (driverName.isNotBlank()) {
+                stringResource(R.string.order_step_picked_up_description_with_driver, driverName)
+            } else {
+                stringResource(R.string.order_step_picked_up_description)
+            }
         ),
         OrderStatusStep(
             status = OrderStatus.ON_THE_WAY,
             title = stringResource(R.string.order_step_on_the_way_title),
-            description = stringResource(R.string.order_step_on_the_way_description)
+            description = if (driverName.isNotBlank()) {
+                stringResource(R.string.order_step_on_the_way_description_with_driver, driverName)
+            } else {
+                stringResource(R.string.order_step_on_the_way_description)
+            }
         ),
         OrderStatusStep(
             status = OrderStatus.DELIVERED,
             title = stringResource(R.string.order_step_delivered_title),
-            description = stringResource(R.string.order_step_delivered_description)
+            description = if (driverName.isNotBlank()) {
+                stringResource(R.string.order_step_delivered_description_with_driver, driverName)
+            } else {
+                stringResource(R.string.order_step_delivered_description)
+            }
         )
     )
 }

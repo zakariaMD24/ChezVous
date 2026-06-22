@@ -242,6 +242,7 @@ object FakeFoodData {
             fullName = "Yassine El Amrani",
             phone = "+212600000001",
             rating = 4.7,
+            ratingCount = 12,
             vehicleType = "Moto"
         )
     )

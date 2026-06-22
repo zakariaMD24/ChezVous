@@ -10,6 +10,9 @@
     <string name="no_notifications_yet">No notifications yet.</string>
     <string name="delivery_scan_pickup_qr">Scan pickup QR</string>
     <string name="delivery_qr_scan_unavailable">QR scan is not available in this demo. Enter the pickup code manually.</string>
+    <string name="delivery_map_title">Delivery map</string>
+    <string name="delivery_open_maps">Open in Maps</string>
+    <string name="delivery_map_unavailable">No map application is available. Check the address manually.</string>
     <string name="ok">OK</string>
     <string name="review_rate_order_hint">Tap to rate this restaurant</string>
     <string name="app_name">ChezVous</string>
@@ -146,6 +149,11 @@
     <string name="admin_add_worker">Add worker</string>
     <string name="admin_assign_restaurants">Assigned restaurants</string>
     <string name="admin_worker_invitation_note">The authentication account is not created here. The worker must register with this email.</string>
+    <string name="dashboard_tile_add">Add</string>
+    <string name="dashboard_tile_open">Open</string>
+    <string name="dashboard_tile_active">Active</string>
+    <string name="dashboard_tile_available">Available</string>
+    <string name="dashboard_tile_invite">Invite</string>
     <string name="partner_choose_restaurant">Choose a restaurant</string>
     <string name="partner_choose_restaurant_hint">Select the restaurant before managing its menu or orders.</string>
     <string name="partner_no_restaurant_available">No restaurant is available for this account.</string>
@@ -293,12 +301,21 @@
     <string name="order_step_ready_description">The kitchen is done and waiting for the driver.</string>
     <string name="order_step_picked_up_title">Picked up by driver</string>
     <string name="order_step_picked_up_description">The driver picked up your order.</string>
+    <string name="order_step_picked_up_description_with_driver">%1$s picked up your order.</string>
     <string name="order_step_on_the_way_title">Driver on the way</string>
     <string name="order_step_on_the_way_description">Delivery is in progress.</string>
+    <string name="order_step_on_the_way_description_with_driver">%1$s is on the way to you.</string>
     <string name="order_step_delivered_title">Delivered</string>
     <string name="order_step_delivered_description">Enjoy your meal.</string>
+    <string name="order_step_delivered_description_with_driver">%1$s delivered your order. Enjoy your meal.</string>
     <string name="review_title">Rate this order</string>
+    <string name="driver_review_title">Rate the driver</string>
     <string name="review_comment_optional">Comment (optional)</string>
     <string name="review_submit">Send review</string>
     <string name="review_saving">Saving...</string>
+    <string name="driver_waiting_title">Waiting for driver</string>
+    <string name="driver_waiting_message">The driver will appear here after pickup validation.</string>
+    <string name="driver_estimation">Estimate: %1$s</string>
+    <string name="driver_rating_with_count">%1$.1f (%2$d reviews)</string>
+    <string name="driver_new_rating">New</string>
 </resources>

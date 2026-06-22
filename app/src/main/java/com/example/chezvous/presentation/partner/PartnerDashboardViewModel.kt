@@ -364,11 +364,13 @@ class PartnerDashboardViewModel : ViewModel() {
             return
         }
 
+        val existingDriver = _uiState.value.drivers.firstOrNull { it.id == driverId }
         val driver = Driver(
             id = driverId,
             fullName = fullName.trim(),
             phone = phone.trim(),
             rating = rating,
+            ratingCount = existingDriver?.ratingCount ?: 0,
             vehicleType = vehicleType.trim(),
             isAvailable = isAvailable
         )

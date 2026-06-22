@@ -1,5 +1,8 @@
 package com.example.chezvous.presentation.delivery
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeliveryDining
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
@@ -35,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -244,9 +249,11 @@ private fun DriverOrderCard(
     onUpdateOrderStatus: (OrderStatus) -> Unit,
     onValidatePickup: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val nextStatus = order.status.nextDriverStatus()
     var pickupCode by remember(order.id) { mutableStateOf("") }
     var showQrFallback by remember(order.id) { mutableStateOf(false) }
+    var showMapFallback by remember(order.id) { mutableStateOf(false) }
     val missingAddressText = stringResource(R.string.delivery_address_missing)
     val missingCustomerText = stringResource(R.string.delivery_customer_fallback)
     val missingPhoneText = stringResource(R.string.delivery_phone_missing)
@@ -297,6 +304,18 @@ private fun DriverOrderCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
+                )
+            }
+
+            if (order.deliveryAddress.isNotBlank()) {
+                DeliveryMapPreview(
+                    address = order.deliveryAddress,
+                    onOpenMap = {
+                        val opened = openAddressInMaps(context, order.deliveryAddress)
+                        if (!opened) {
+                            showMapFallback = true
+                        }
+                    }
                 )
             }
 
@@ -367,6 +386,23 @@ private fun DriverOrderCard(
         }
     }
 
+    if (showMapFallback) {
+        AlertDialog(
+            onDismissRequest = { showMapFallback = false },
+            title = {
+                Text(stringResource(R.string.delivery_map_title))
+            },
+            text = {
+                Text(stringResource(R.string.delivery_map_unavailable))
+            },
+            confirmButton = {
+                TextButton(onClick = { showMapFallback = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
+    }
+
     if (showQrFallback) {
         AlertDialog(
             onDismissRequest = { showQrFallback = false },
@@ -382,6 +418,57 @@ private fun DriverOrderCard(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun DeliveryMapPreview(
+    address: String,
+    onOpenMap: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column(
+            modifier = Modifier.padding(ChezVousSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)
+        ) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Map,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.delivery_map_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Text(
+                        text = address,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            OutlinedButton(
+                onClick = onOpenMap,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Outlined.LocationOn, contentDescription = null)
+                Spacer(modifier = Modifier.width(ChezVousSpacing.xs))
+                Text(stringResource(R.string.delivery_open_maps))
+            }
+        }
     }
 }
 
@@ -551,4 +638,27 @@ private fun OrderStatus.driverActionLabelRes(): Int {
         OrderStatus.DELIVERED -> R.string.delivery_action_delivered
         else -> R.string.update
     }
+}
+
+private fun openAddressInMaps(
+    context: Context,
+    address: String
+): Boolean {
+    val encodedAddress = Uri.encode(address)
+    val geoIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encodedAddress"))
+    val geoOpened = runCatching {
+        context.startActivity(geoIntent)
+        true
+    }.getOrDefault(false)
+
+    if (geoOpened) return true
+
+    val webIntent = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("https://www.google.com/maps/search/?api=1&query=$encodedAddress")
+    )
+    return runCatching {
+        context.startActivity(webIntent)
+        true
+    }.getOrDefault(false)
 }

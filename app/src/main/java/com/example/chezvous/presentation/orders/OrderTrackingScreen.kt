@@ -110,6 +110,7 @@ fun OrderTrackingScreen(
                     uiState = uiState,
                     onCancelOrder = viewModel::cancelOrder,
                     onSubmitReview = viewModel::submitReview,
+                    onSubmitDriverReview = viewModel::submitDriverReview,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
@@ -124,6 +125,7 @@ private fun OrderTrackingContent(
     uiState: OrderTrackingUiState,
     onCancelOrder: () -> Unit,
     onSubmitReview: (Int, String) -> Unit,
+    onSubmitDriverReview: (Int, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val order = uiState.order ?: return
@@ -138,7 +140,10 @@ private fun OrderTrackingContent(
         }
 
         item {
-            OrderStatusStepper(status = order.status)
+            OrderStatusStepper(
+                status = order.status,
+                driverName = uiState.driver?.fullName.orEmpty()
+            )
         }
 
         item {
@@ -163,9 +168,20 @@ private fun OrderTrackingContent(
         if (order.status == OrderStatus.DELIVERED) {
             item {
                 ReviewCard(
+                    title = stringResource(R.string.review_title),
                     isSaving = uiState.isReviewSaving,
                     onSubmitReview = onSubmitReview
                 )
+            }
+
+            if (uiState.driver != null) {
+                item {
+                    ReviewCard(
+                        title = stringResource(R.string.driver_review_title),
+                        isSaving = uiState.isDriverReviewSaving,
+                        onSubmitReview = onSubmitDriverReview
+                    )
+                }
             }
         }
 
@@ -206,6 +222,7 @@ private fun OrderTrackingContent(
 
 @Composable
 private fun ReviewCard(
+    title: String,
     isSaving: Boolean,
     onSubmitReview: (Int, String) -> Unit
 ) {
@@ -218,7 +235,7 @@ private fun ReviewCard(
             verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
         ) {
             Text(
-                text = stringResource(R.string.review_title),
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )

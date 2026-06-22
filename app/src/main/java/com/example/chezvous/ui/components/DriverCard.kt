@@ -16,7 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.example.chezvous.R
 import com.example.chezvous.data.model.Driver
 import com.example.chezvous.ui.theme.ChezVousSize
 import com.example.chezvous.ui.theme.ChezVousSpacing
@@ -51,14 +53,14 @@ fun DriverCard(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = driver?.fullName ?: "Livreur en attente",
+                    text = driver?.fullName ?: stringResource(R.string.driver_waiting_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
 
                 Text(
                     text = if (driver == null) {
-                        "Le restaurant assignera un livreur."
+                        stringResource(R.string.driver_waiting_message)
                     } else {
                         "${driver.vehicleType} - ${driver.phone}"
                     },
@@ -68,7 +70,7 @@ fun DriverCard(
 
                 if (estimatedDeliveryTime.isNotBlank()) {
                     Text(
-                        text = "Estimation: $estimatedDeliveryTime",
+                        text = stringResource(R.string.driver_estimation, estimatedDeliveryTime),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -89,7 +91,15 @@ fun DriverCard(
                     Spacer(modifier = Modifier.size(ChezVousSpacing.xxs))
 
                     Text(
-                        text = driver.rating.toString(),
+                        text = if (driver.ratingCount > 0) {
+                            stringResource(
+                                R.string.driver_rating_with_count,
+                                driver.rating,
+                                driver.ratingCount
+                            )
+                        } else {
+                            stringResource(R.string.driver_new_rating)
+                        },
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

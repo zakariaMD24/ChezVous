@@ -2,6 +2,7 @@ package com.example.chezvous.data.repository
 
 import com.example.chezvous.data.local.FakeFoodData
 import com.example.chezvous.data.model.Driver
+import com.example.chezvous.data.model.DriverReview
 import com.example.chezvous.data.remote.FirestoreCollections
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -112,12 +113,73 @@ class DriverRepository(
         }
     }
 
+    suspend fun submitDriverReview(review: DriverReview): Result<Unit> {
+        return try {
+            val cleanRating = review.rating.coerceIn(1, 5)
+            val cleanDriverId = review.driverId.trim()
+            val reviewId = "${review.orderId}_${review.customerId}"
+
+            if (cleanDriverId.isBlank()) {
+                return Result.failure(IllegalArgumentException("Livreur introuvable."))
+            }
+
+            val reviewDocument = firestore
+                .collection(FirestoreCollections.DRIVER_REVIEWS)
+                .document(reviewId)
+            val driverDocument = firestore
+                .collection(FirestoreCollections.DRIVERS)
+                .document(cleanDriverId)
+
+            firestore.runTransaction { transaction ->
+                if (transaction.get(reviewDocument).exists()) {
+                    throw IllegalArgumentException("Vous avez deja note ce livreur pour cette commande.")
+                }
+
+                val driverSnapshot = transaction.get(driverDocument)
+                if (!driverSnapshot.exists()) {
+                    throw IllegalArgumentException("Livreur introuvable.")
+                }
+
+                val currentCount = (driverSnapshot.get("ratingCount") as? Number)?.toInt() ?: 0
+                val currentAverage = if (currentCount > 0) {
+                    (driverSnapshot.get("rating") as? Number)?.toDouble() ?: 0.0
+                } else {
+                    0.0
+                }
+                val newCount = currentCount + 1
+                val newAverage = ((currentAverage * currentCount) + cleanRating) / newCount
+
+                transaction.set(
+                    reviewDocument,
+                    review.copy(
+                        id = reviewId,
+                        driverId = cleanDriverId,
+                        rating = cleanRating,
+                        comment = review.comment.trim()
+                    )
+                )
+                transaction.update(
+                    driverDocument,
+                    mapOf(
+                        "rating" to newAverage,
+                        "ratingCount" to newCount
+                    )
+                )
+            }.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun Driver.toFirestoreMap(): Map<String, Any?> {
         return mapOf(
             "id" to id,
             "fullName" to fullName,
             "phone" to phone,
             "rating" to rating,
+            "ratingCount" to ratingCount,
             "vehicleType" to vehicleType,
             "isAvailable" to isAvailable
         )

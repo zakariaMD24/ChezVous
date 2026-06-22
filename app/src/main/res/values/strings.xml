@@ -10,6 +10,9 @@
     <string name="no_notifications_yet">Aucune notification pour le moment.</string>
     <string name="delivery_scan_pickup_qr">Scanner le QR de retrait</string>
     <string name="delivery_qr_scan_unavailable">Le scan QR n\'est pas disponible dans cette demo. Saisissez le code de retrait manuellement.</string>
+    <string name="delivery_map_title">Carte de livraison</string>
+    <string name="delivery_open_maps">Ouvrir dans Maps</string>
+    <string name="delivery_map_unavailable">Aucune application de carte n\'est disponible. Verifiez l\'adresse manuellement.</string>
     <string name="ok">OK</string>
     <string name="review_rate_order_hint">Appuyez pour noter ce restaurant</string>
     <string name="app_name">ChezVous</string>
@@ -146,6 +149,11 @@
     <string name="admin_add_worker">Ajouter un worker</string>
     <string name="admin_assign_restaurants">Restaurants assignes</string>
     <string name="admin_worker_invitation_note">Le compte d\'authentification n\'est pas cree ici. Le worker doit s\'inscrire avec cet email.</string>
+    <string name="dashboard_tile_add">Ajouter</string>
+    <string name="dashboard_tile_open">Ouvrir</string>
+    <string name="dashboard_tile_active">Actifs</string>
+    <string name="dashboard_tile_available">Disponibles</string>
+    <string name="dashboard_tile_invite">Inviter</string>
     <string name="partner_choose_restaurant">Choisir un restaurant</string>
     <string name="partner_choose_restaurant_hint">Selectionnez le restaurant avant de gerer le menu ou les commandes.</string>
     <string name="partner_no_restaurant_available">Aucun restaurant disponible pour ce compte.</string>
@@ -293,12 +301,21 @@
     <string name="order_step_ready_description">La cuisine a termine et attend le livreur.</string>
     <string name="order_step_picked_up_title">Pris par le livreur</string>
     <string name="order_step_picked_up_description">Le livreur a recupere votre commande.</string>
+    <string name="order_step_picked_up_description_with_driver">%1$s a recupere votre commande.</string>
     <string name="order_step_on_the_way_title">Livreur en route</string>
     <string name="order_step_on_the_way_description">La livraison est en cours.</string>
+    <string name="order_step_on_the_way_description_with_driver">%1$s est en route vers vous.</string>
     <string name="order_step_delivered_title">Livree</string>
     <string name="order_step_delivered_description">Bon appetit.</string>
+    <string name="order_step_delivered_description_with_driver">%1$s a livre votre commande. Bon appetit.</string>
     <string name="review_title">Noter cette commande</string>
+    <string name="driver_review_title">Noter le livreur</string>
     <string name="review_comment_optional">Commentaire (optionnel)</string>
     <string name="review_submit">Envoyer l\'avis</string>
     <string name="review_saving">Enregistrement...</string>
+    <string name="driver_waiting_title">Livreur en attente</string>
+    <string name="driver_waiting_message">Le livreur apparaitra ici apres validation du retrait.</string>
+    <string name="driver_estimation">Estimation: %1$s</string>
+    <string name="driver_rating_with_count">%1$.1f (%2$d avis)</string>
+    <string name="driver_new_rating">Nouveau</string>
 </resources>

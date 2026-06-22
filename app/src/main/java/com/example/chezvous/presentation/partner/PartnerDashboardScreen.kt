@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -46,10 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chezvous.R
@@ -83,6 +87,22 @@ private enum class PartnerDashboardSection {
     DRIVERS,
     USERS
 }
+
+private enum class DashboardTone {
+    Warm,
+    Fresh,
+    Cool,
+    Neutral
+}
+
+private data class DashboardAction(
+    val title: String,
+    val value: String,
+    val helper: String,
+    val icon: ImageVector,
+    val tone: DashboardTone,
+    val onClick: () -> Unit
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -350,6 +370,7 @@ private fun PartnerDashboardContent(
                 onRestaurantSelected = onRestaurantSelected,
                 onSectionSelected = onSectionSelected,
                 onAddRestaurant = onAddRestaurant,
+                onAddWorker = onAddWorker,
                 modifier = modifier
             )
         }
@@ -427,6 +448,7 @@ private fun RestaurantSelectionContent(
     onRestaurantSelected: (String) -> Unit,
     onSectionSelected: (PartnerDashboardSection) -> Unit,
     onAddRestaurant: () -> Unit,
+    onAddWorker: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isAdmin = UserRoles.hasGlobalRestaurantAccess(uiState.role)
@@ -466,27 +488,41 @@ private fun RestaurantSelectionContent(
 
         if (isAdmin) {
             item {
-                ManagementActionCard(
-                    title = stringResource(R.string.partner_users_roles),
-                    subtitle = stringResource(
-                        R.string.partner_users_roles_summary,
-                        uiState.visibleUsers.size
-                    ),
-                    icon = Icons.Outlined.Person,
-                    onClick = { onSectionSelected(PartnerDashboardSection.USERS) }
-                )
-            }
-
-            item {
-                ManagementActionCard(
-                    title = stringResource(R.string.partner_drivers),
-                    subtitle = stringResource(
-                        R.string.partner_drivers_summary,
-                        uiState.drivers.count { it.isAvailable },
-                        uiState.drivers.size
-                    ),
-                    icon = Icons.Outlined.DeliveryDining,
-                    onClick = { onSectionSelected(PartnerDashboardSection.DRIVERS) }
+                DashboardActionGrid(
+                    actions = listOf(
+                        DashboardAction(
+                            title = stringResource(R.string.all_restaurants),
+                            value = uiState.restaurants.size.toString(),
+                            helper = stringResource(R.string.dashboard_tile_add),
+                            icon = Icons.Outlined.Storefront,
+                            tone = DashboardTone.Warm,
+                            onClick = onAddRestaurant
+                        ),
+                        DashboardAction(
+                            title = stringResource(R.string.partner_users_roles),
+                            value = uiState.visibleUsers.size.toString(),
+                            helper = stringResource(R.string.dashboard_tile_active),
+                            icon = Icons.Outlined.Person,
+                            tone = DashboardTone.Fresh,
+                            onClick = { onSectionSelected(PartnerDashboardSection.USERS) }
+                        ),
+                        DashboardAction(
+                            title = stringResource(R.string.partner_drivers),
+                            value = "${uiState.drivers.count { it.isAvailable }} / ${uiState.drivers.size}",
+                            helper = stringResource(R.string.dashboard_tile_available),
+                            icon = Icons.Outlined.DeliveryDining,
+                            tone = DashboardTone.Cool,
+                            onClick = { onSectionSelected(PartnerDashboardSection.DRIVERS) }
+                        ),
+                        DashboardAction(
+                            title = stringResource(R.string.admin_add_worker),
+                            value = "+",
+                            helper = stringResource(R.string.dashboard_tile_invite),
+                            icon = Icons.Outlined.Add,
+                            tone = DashboardTone.Neutral,
+                            onClick = onAddWorker
+                        )
+                    )
                 )
             }
 
@@ -553,63 +589,61 @@ private fun PartnerSectionPickerContent(
         }
 
         item {
-            ManagementActionCard(
-                title = stringResource(R.string.partner_restaurant_settings),
-                subtitle = stringResource(R.string.partner_restaurant_settings_summary),
-                icon = Icons.Outlined.Storefront,
-                onClick = { onSectionSelected(PartnerDashboardSection.SETTINGS) }
-            )
-        }
-
-        item {
-            ManagementActionCard(
-                title = stringResource(R.string.partner_manage_menu),
-                subtitle = stringResource(
-                    R.string.partner_manage_menu_summary,
-                    uiState.menuItems.size
+            val restaurantState = if (uiState.selectedRestaurant?.isOpen == true) {
+                stringResource(R.string.restaurant_open)
+            } else {
+                stringResource(R.string.restaurant_closed)
+            }
+            val baseActions = listOf(
+                DashboardAction(
+                    title = stringResource(R.string.partner_restaurant_settings),
+                    value = restaurantState,
+                    helper = stringResource(R.string.dashboard_tile_open),
+                    icon = Icons.Outlined.Storefront,
+                    tone = DashboardTone.Warm,
+                    onClick = { onSectionSelected(PartnerDashboardSection.SETTINGS) }
                 ),
-                icon = Icons.Outlined.MenuBook,
-                onClick = { onSectionSelected(PartnerDashboardSection.MENU) }
-            )
-        }
-
-        item {
-            ManagementActionCard(
-                title = stringResource(R.string.partner_received_orders),
-                subtitle = stringResource(
-                    R.string.partner_received_orders_summary,
-                    uiState.orders.size
+                DashboardAction(
+                    title = stringResource(R.string.partner_manage_menu),
+                    value = uiState.menuItems.size.toString(),
+                    helper = stringResource(R.string.partner_dishes),
+                    icon = Icons.Outlined.MenuBook,
+                    tone = DashboardTone.Fresh,
+                    onClick = { onSectionSelected(PartnerDashboardSection.MENU) }
                 ),
-                icon = Icons.Outlined.ReceiptLong,
-                onClick = { onSectionSelected(PartnerDashboardSection.COMMANDS) }
-            )
-        }
-
-        if (UserRoles.hasGlobalRestaurantAccess(uiState.role)) {
-            item {
-                ManagementActionCard(
-                    title = stringResource(R.string.partner_drivers),
-                    subtitle = stringResource(
-                        R.string.partner_drivers_summary,
-                        uiState.drivers.count { it.isAvailable },
-                        uiState.drivers.size
-                    ),
-                    icon = Icons.Outlined.DeliveryDining,
-                    onClick = { onSectionSelected(PartnerDashboardSection.DRIVERS) }
+                DashboardAction(
+                    title = stringResource(R.string.partner_received_orders),
+                    value = uiState.orders.size.toString(),
+                    helper = stringResource(R.string.partner_all_orders),
+                    icon = Icons.Outlined.ReceiptLong,
+                    tone = DashboardTone.Cool,
+                    onClick = { onSectionSelected(PartnerDashboardSection.COMMANDS) }
                 )
+            )
+            val adminActions = if (UserRoles.hasGlobalRestaurantAccess(uiState.role)) {
+                listOf(
+                    DashboardAction(
+                        title = stringResource(R.string.partner_drivers),
+                        value = "${uiState.drivers.count { it.isAvailable }} / ${uiState.drivers.size}",
+                        helper = stringResource(R.string.dashboard_tile_available),
+                        icon = Icons.Outlined.DeliveryDining,
+                        tone = DashboardTone.Neutral,
+                        onClick = { onSectionSelected(PartnerDashboardSection.DRIVERS) }
+                    ),
+                    DashboardAction(
+                        title = stringResource(R.string.partner_users_roles),
+                        value = uiState.visibleUsers.size.toString(),
+                        helper = stringResource(R.string.dashboard_tile_active),
+                        icon = Icons.Outlined.Person,
+                        tone = DashboardTone.Fresh,
+                        onClick = { onSectionSelected(PartnerDashboardSection.USERS) }
+                    )
+                )
+            } else {
+                emptyList()
             }
 
-            item {
-                ManagementActionCard(
-                    title = stringResource(R.string.partner_users_roles),
-                    subtitle = stringResource(
-                        R.string.partner_users_roles_summary,
-                        uiState.visibleUsers.size
-                    ),
-                    icon = Icons.Outlined.Person,
-                    onClick = { onSectionSelected(PartnerDashboardSection.USERS) }
-                )
-            }
+            DashboardActionGrid(actions = baseActions + adminActions)
         }
     }
 }
@@ -1384,50 +1418,128 @@ private fun SectionScreenHeader(
 }
 
 @Composable
-private fun ManagementActionCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    onClick: () -> Unit
+private fun DashboardActionGrid(actions: List<DashboardAction>) {
+    Column(verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.md)) {
+        actions.chunked(2).forEach { rowActions ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.md)
+            ) {
+                rowActions.forEach { action ->
+                    DashboardActionTile(
+                        action = action,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                if (rowActions.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardActionTile(
+    action: DashboardAction,
+    modifier: Modifier = Modifier
 ) {
-    ChezVousCard(onClick = onClick) {
-        Row(
-            modifier = Modifier.padding(ChezVousSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.md)
+    val colors = dashboardActionColors(action.tone)
+
+    ChezVousCard(
+        modifier = modifier.aspectRatio(1f),
+        onClick = action.onClick,
+        containerColor = colors.container
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(ChezVousSpacing.md),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Surface(
-                modifier = Modifier.size(52.dp),
+                modifier = Modifier.size(42.dp),
                 shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = colors.iconContainer
             ) {
                 Icon(
-                    imageVector = icon,
+                    imageVector = action.icon,
                     contentDescription = null,
-                    modifier = Modifier.padding(12.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    modifier = Modifier.padding(10.dp),
+                    tint = colors.icon
                 )
             }
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.xxs)) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
+                    text = action.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.content,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = action.value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = action.helper,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.content.copy(alpha = 0.72f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-
-            Icon(
-                imageVector = Icons.Outlined.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
+    }
+}
+
+private data class DashboardActionColors(
+    val container: Color,
+    val iconContainer: Color,
+    val icon: Color,
+    val content: Color
+)
+
+@Composable
+private fun dashboardActionColors(tone: DashboardTone): DashboardActionColors {
+    val scheme = MaterialTheme.colorScheme
+    return when (tone) {
+        DashboardTone.Warm -> DashboardActionColors(
+            container = scheme.primaryContainer.copy(alpha = 0.42f),
+            iconContainer = scheme.surface.copy(alpha = 0.82f),
+            icon = scheme.primary,
+            content = scheme.onSurface
+        )
+
+        DashboardTone.Fresh -> DashboardActionColors(
+            container = scheme.secondaryContainer.copy(alpha = 0.42f),
+            iconContainer = scheme.surface.copy(alpha = 0.82f),
+            icon = scheme.secondary,
+            content = scheme.onSurface
+        )
+
+        DashboardTone.Cool -> DashboardActionColors(
+            container = scheme.tertiaryContainer.copy(alpha = 0.42f),
+            iconContainer = scheme.surface.copy(alpha = 0.82f),
+            icon = scheme.tertiary,
+            content = scheme.onSurface
+        )
+
+        DashboardTone.Neutral -> DashboardActionColors(
+            container = scheme.surfaceVariant.copy(alpha = 0.72f),
+            iconContainer = scheme.surface.copy(alpha = 0.86f),
+            icon = scheme.onSurfaceVariant,
+            content = scheme.onSurface
+        )
     }
 }
 

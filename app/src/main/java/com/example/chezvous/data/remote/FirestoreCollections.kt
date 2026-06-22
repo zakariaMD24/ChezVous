@@ -8,5 +8,6 @@ object FirestoreCollections {
     const val DRIVERS = "drivers"
     const val NOTIFICATIONS = "notifications"
     const val RESTAURANT_REVIEWS = "restaurantReviews"
+    const val DRIVER_REVIEWS = "driverReviews"
     const val WORKER_INVITATIONS = "workerInvitations"
 }

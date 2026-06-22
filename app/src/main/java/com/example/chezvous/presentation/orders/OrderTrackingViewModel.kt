@@ -3,6 +3,7 @@ package com.example.chezvous.presentation.orders
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chezvous.data.model.Driver
+import com.example.chezvous.data.model.DriverReview
 import com.example.chezvous.data.model.Order
 import com.example.chezvous.data.model.OrderStatus
 import com.example.chezvous.data.model.RestaurantReview
@@ -23,7 +24,8 @@ data class OrderTrackingUiState(
     val errorMessage: String? = null,
     val actionMessage: String? = null,
     val isCancelling: Boolean = false,
-    val isReviewSaving: Boolean = false
+    val isReviewSaving: Boolean = false,
+    val isDriverReviewSaving: Boolean = false
 ) {
     val canCancel: Boolean
         get() = order?.status == OrderStatus.PENDING ||
@@ -36,6 +38,7 @@ class OrderTrackingViewModel : ViewModel() {
     private val driverRepository = DriverRepository()
     private val restaurantRepository = RestaurantRepository()
     private var currentOrderId = ""
+    private var observedDriverId = ""
     private var orderJob: Job? = null
     private var driverJob: Job? = null
 
@@ -46,6 +49,7 @@ class OrderTrackingViewModel : ViewModel() {
         if (orderId.isBlank() || orderId == currentOrderId) return
 
         currentOrderId = orderId
+        observedDriverId = ""
         orderJob?.cancel()
         driverJob?.cancel()
         _uiState.value = OrderTrackingUiState(isLoading = true)
@@ -64,7 +68,7 @@ class OrderTrackingViewModel : ViewModel() {
                     )
                 }
 
-                observeDriver(order?.driverId.orEmpty())
+                observeDriver(order?.trackingDriverId().orEmpty())
             }
         }
     }
@@ -153,18 +157,81 @@ class OrderTrackingViewModel : ViewModel() {
         }
     }
 
-    private fun observeDriver(driverId: String) {
-        driverJob?.cancel()
+    fun submitDriverReview(rating: Int, comment: String) {
+        val order = _uiState.value.order ?: return
+        val userId = authRepository.currentUserId().orEmpty()
+        val driverId = order.trackingDriverId()
+
+        if (order.status != OrderStatus.DELIVERED || userId.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "La note du livreur sera disponible apres livraison.") }
+            return
+        }
 
         if (driverId.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Aucun livreur n'est associe a cette commande.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isDriverReviewSaving = true,
+                    errorMessage = null,
+                    actionMessage = null
+                )
+            }
+
+            driverRepository.submitDriverReview(
+                DriverReview(
+                    orderId = order.id,
+                    driverId = driverId,
+                    driverUserId = order.driverUserId,
+                    customerId = userId,
+                    customerName = order.customerName,
+                    rating = rating,
+                    comment = comment
+                )
+            )
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isDriverReviewSaving = false,
+                            actionMessage = "Merci pour votre avis sur le livreur."
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isDriverReviewSaving = false,
+                            errorMessage = error.message ?: "Impossible d'enregistrer votre avis livreur."
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun observeDriver(driverId: String) {
+        val cleanDriverId = driverId.trim()
+        if (cleanDriverId == observedDriverId) return
+        observedDriverId = cleanDriverId
+        driverJob?.cancel()
+
+        if (cleanDriverId.isBlank()) {
             _uiState.update { it.copy(driver = null) }
             return
         }
 
         driverJob = viewModelScope.launch {
-            driverRepository.observeDriver(driverId).collect { driver ->
+            driverRepository.observeDriver(cleanDriverId).collect { driver ->
                 _uiState.update { it.copy(driver = driver) }
             }
         }
     }
+}
+
+private fun Order.trackingDriverId(): String {
+    return driverProfileId.trim()
+        .ifBlank { driverId.trim() }
+        .ifBlank { driverUserId.trim() }
 }
