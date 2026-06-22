@@ -14,7 +14,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeliveryDining
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -243,6 +246,7 @@ private fun DriverOrderCard(
 ) {
     val nextStatus = order.status.nextDriverStatus()
     var pickupCode by remember(order.id) { mutableStateOf("") }
+    var showQrFallback by remember(order.id) { mutableStateOf(false) }
     val missingAddressText = stringResource(R.string.delivery_address_missing)
     val missingCustomerText = stringResource(R.string.delivery_customer_fallback)
     val missingPhoneText = stringResource(R.string.delivery_phone_missing)
@@ -337,6 +341,15 @@ private fun DriverOrderCard(
                     label = stringResource(R.string.pickup_code_title)
                 )
 
+                OutlinedButton(
+                    onClick = { showQrFallback = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Outlined.QrCodeScanner, contentDescription = null)
+                    Spacer(modifier = Modifier.width(ChezVousSpacing.xs))
+                    Text(stringResource(R.string.delivery_scan_pickup_qr))
+                }
+
                 ChezVousButton(
                     text = stringResource(R.string.delivery_validate_pickup),
                     loadingText = stringResource(R.string.delivery_validating),
@@ -352,6 +365,23 @@ private fun DriverOrderCard(
                 )
             }
         }
+    }
+
+    if (showQrFallback) {
+        AlertDialog(
+            onDismissRequest = { showQrFallback = false },
+            title = {
+                Text(stringResource(R.string.delivery_scan_pickup_qr))
+            },
+            text = {
+                Text(stringResource(R.string.delivery_qr_scan_unavailable))
+            },
+            confirmButton = {
+                TextButton(onClick = { showQrFallback = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
     }
 }
 

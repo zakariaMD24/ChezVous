@@ -23,10 +23,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chezvous.R
 import com.example.chezvous.data.model.Order
+import com.example.chezvous.data.model.OrderStatus
 import com.example.chezvous.ui.components.ChezVousCard
 import com.example.chezvous.ui.components.ChezVousTopBar
 import com.example.chezvous.ui.components.OrderStatusChip
@@ -169,6 +172,16 @@ private fun OrderHistoryCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (order.status == OrderStatus.DELIVERED) {
+                Spacer(modifier = Modifier.height(ChezVousSpacing.xs))
+                Text(
+                    text = stringResource(R.string.review_rate_order_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }

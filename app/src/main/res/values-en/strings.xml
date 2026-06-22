@@ -2,9 +2,16 @@
     <string name="theme">Theme</string>
     <string name="theme_follows_system">Theme follows your device setting.</string>
     <string name="theme_toggle_content_description">Change theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
     <string name="notifications">Notifications</string>
     <string name="notifications_content_description">Open notifications</string>
     <string name="no_notifications_yet">No notifications yet.</string>
+    <string name="delivery_scan_pickup_qr">Scan pickup QR</string>
+    <string name="delivery_qr_scan_unavailable">QR scan is not available in this demo. Enter the pickup code manually.</string>
+    <string name="ok">OK</string>
+    <string name="review_rate_order_hint">Tap to rate this restaurant</string>
     <string name="app_name">ChezVous</string>
     <string name="home_greeting">Hello</string>
     <string name="home_question">What would you like to eat today?</string>

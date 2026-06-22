@@ -3,9 +3,11 @@ package com.example.chezvous.data.repository
 import com.example.chezvous.data.model.CartItem
 import com.example.chezvous.data.model.CustomizationOption
 import com.example.chezvous.data.model.FoodItem
+import com.example.chezvous.data.model.AppNotification
 import com.example.chezvous.data.model.Order
 import com.example.chezvous.data.model.OrderStatus
 import com.example.chezvous.data.model.PaymentStatus
+import com.example.chezvous.data.model.UserRoles
 import com.example.chezvous.data.remote.FirestoreCollections
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -19,6 +21,8 @@ import kotlinx.coroutines.tasks.await
 class OrderRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
+    private val notificationRepository = NotificationRepository(firestore)
+
     private companion object {
         val fallbackOrders = MutableStateFlow<List<Order>>(emptyList())
         val readyForPickupStatusValues = listOf(
@@ -334,6 +338,7 @@ class OrderRepository(
                 pickupCode = order.pickupCode.ifBlank { document.id.toPickupCode() }
             )
             document.set(orderWithId.toFirestoreMap()).await()
+            createOrderCreatedNotifications(orderWithId)
 
             Result.success(document.id)
         } catch (e: Exception) {
@@ -346,11 +351,13 @@ class OrderRepository(
         status: OrderStatus
     ): Result<Unit> {
         return try {
-            firestore
+            val document = firestore
                 .collection(FirestoreCollections.ORDERS)
                 .document(orderId)
-                .update("status", status.name)
-                .await()
+            document.update("status", status.name).await()
+            document.get().await().toOrder()?.copy(status = status)?.let { order ->
+                createOrderStatusNotifications(order, status)
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -399,11 +406,23 @@ class OrderRepository(
                     mapOf(
                         "status" to OrderStatus.PICKED_UP.name,
                         "driverId" to cleanDriverId,
+                        "driverProfileId" to cleanDriverId,
+                        "driverUserId" to currentUserId.trim(),
                         "pickupCodeValidation" to cleanCode,
-                        "pickupCodeValidatedAt" to System.currentTimeMillis()
+                        "pickupCodeValidatedAt" to System.currentTimeMillis(),
+                        "pickedUpAt" to System.currentTimeMillis(),
+                        "updatedAt" to System.currentTimeMillis()
                     )
                 )
             }.await()
+            document.get().await().toOrder()?.copy(
+                status = OrderStatus.PICKED_UP,
+                driverId = cleanDriverId,
+                driverProfileId = cleanDriverId,
+                driverUserId = currentUserId.trim()
+            )?.let { order ->
+                createDriverProgressNotification(order, OrderStatus.PICKED_UP)
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -450,10 +469,25 @@ class OrderRepository(
                     document,
                     mapOf(
                         "status" to status.name,
-                        "driverId" to cleanDriverId
-                    )
+                        "driverId" to cleanDriverId,
+                        "driverProfileId" to cleanDriverId,
+                        "driverUserId" to currentUserId.trim(),
+                        "updatedAt" to System.currentTimeMillis()
+                    ) + if (status == OrderStatus.DELIVERED) {
+                        mapOf("deliveredAt" to System.currentTimeMillis())
+                    } else {
+                        emptyMap()
+                    }
                 )
             }.await()
+            document.get().await().toOrder()?.copy(
+                status = status,
+                driverId = cleanDriverId,
+                driverProfileId = cleanDriverId,
+                driverUserId = currentUserId.trim()
+            )?.let { order ->
+                createDriverProgressNotification(order, status)
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -481,9 +515,14 @@ class OrderRepository(
             "paymentStatus" to paymentStatus.name,
             "status" to status.name,
             "driverId" to driverId,
+            "driverUserId" to driverUserId,
+            "driverProfileId" to driverProfileId,
             "pickupCode" to pickupCode,
             "pickupCodeValidatedAt" to pickupCodeValidatedAt,
             "estimatedDeliveryTime" to estimatedDeliveryTime,
+            "updatedAt" to updatedAt,
+            "pickedUpAt" to pickedUpAt,
+            "deliveredAt" to deliveredAt,
             "createdAt" to createdAt
         )
     }
@@ -556,9 +595,14 @@ class OrderRepository(
             paymentStatus = snapshotData.paymentStatusValue("paymentStatus"),
             status = snapshotData.orderStatusValue("status"),
             driverId = snapshotData.stringValue("driverId"),
+            driverUserId = snapshotData.stringValue("driverUserId"),
+            driverProfileId = snapshotData.stringValue("driverProfileId"),
             pickupCode = snapshotData.stringValue("pickupCode").ifBlank { id.toPickupCode() },
             pickupCodeValidatedAt = snapshotData.longValue("pickupCodeValidatedAt", 0L),
             estimatedDeliveryTime = snapshotData.stringValue("estimatedDeliveryTime"),
+            updatedAt = snapshotData.longValue("updatedAt", 0L),
+            pickedUpAt = snapshotData.longValue("pickedUpAt", 0L),
+            deliveredAt = snapshotData.longValue("deliveredAt", 0L),
             createdAt = snapshotData.longValue("createdAt")
         )
     }
@@ -693,11 +737,136 @@ class OrderRepository(
         }
     }
 
+    private suspend fun createOrderCreatedNotifications(order: Order) {
+        createNotification(
+            userId = order.userId,
+            title = "Commande envoyee",
+            message = "Votre commande chez ${order.restaurantName} a ete creee.",
+            type = "ORDER_CREATED",
+            order = order
+        )
+        createNotification(
+            roleTarget = UserRoles.PARTNER,
+            title = "Nouvelle commande",
+            message = "Une nouvelle commande est disponible chez ${order.restaurantName}.",
+            type = "ORDER_CREATED",
+            order = order
+        )
+        createNotification(
+            roleTarget = UserRoles.ADMIN,
+            title = "Nouvelle commande",
+            message = "Une nouvelle commande est disponible chez ${order.restaurantName}.",
+            type = "ORDER_CREATED",
+            order = order
+        )
+    }
+
+    private suspend fun createOrderStatusNotifications(
+        order: Order,
+        status: OrderStatus
+    ) {
+        when (status) {
+            OrderStatus.ACCEPTED -> createNotification(
+                userId = order.userId,
+                title = "Commande acceptee",
+                message = "${order.restaurantName} a accepte votre commande.",
+                type = "ORDER_ACCEPTED",
+                order = order
+            )
+            OrderStatus.PREPARING -> createNotification(
+                userId = order.userId,
+                title = "Preparation en cours",
+                message = "Votre commande est en preparation.",
+                type = "ORDER_PREPARING",
+                order = order
+            )
+            OrderStatus.READY_FOR_PICKUP -> {
+                createNotification(
+                    userId = order.userId,
+                    title = "Commande prete",
+                    message = "Votre commande est prete pour le retrait livreur.",
+                    type = "ORDER_READY_FOR_PICKUP",
+                    order = order
+                )
+                createNotification(
+                    roleTarget = UserRoles.DRIVER,
+                    title = "Commande prete au retrait",
+                    message = "Une livraison est disponible chez ${order.restaurantName}.",
+                    type = "ORDER_READY_FOR_PICKUP",
+                    order = order
+                )
+            }
+            else -> Unit
+        }
+    }
+
+    private suspend fun createDriverProgressNotification(
+        order: Order,
+        status: OrderStatus
+    ) {
+        when (status) {
+            OrderStatus.PICKED_UP -> createNotification(
+                userId = order.userId,
+                title = "Commande recuperee",
+                message = "Le livreur a recupere votre commande.",
+                type = "ORDER_PICKED_UP",
+                order = order
+            )
+            OrderStatus.ON_THE_WAY -> createNotification(
+                userId = order.userId,
+                title = "Commande en route",
+                message = "Votre commande arrive bientot.",
+                type = "ORDER_ON_THE_WAY",
+                order = order
+            )
+            OrderStatus.DELIVERED -> {
+                createNotification(
+                    userId = order.userId,
+                    title = "Commande livree",
+                    message = "Votre commande a ete livree.",
+                    type = "ORDER_DELIVERED",
+                    order = order
+                )
+                createNotification(
+                    userId = order.userId,
+                    title = "Notez votre commande",
+                    message = "Partagez votre avis sur ${order.restaurantName}.",
+                    type = "ORDER_REVIEW_REQUEST",
+                    order = order
+                )
+            }
+            else -> Unit
+        }
+    }
+
+    private suspend fun createNotification(
+        userId: String = "",
+        roleTarget: String = "",
+        title: String,
+        message: String,
+        type: String,
+        order: Order
+    ) {
+        notificationRepository.createNotification(
+            AppNotification(
+                userId = userId,
+                roleTarget = roleTarget,
+                title = title,
+                message = message,
+                type = type,
+                relatedOrderId = order.id,
+                relatedRestaurantId = order.restaurantId
+            )
+        )
+    }
+
     private fun Order.isVisibleToDriver(driverKeys: Set<String>): Boolean {
-        val cleanDriverId = driverId.trim()
-        val assignedToDriver = cleanDriverId in driverKeys
+        val driverIds = setOf(driverId.trim(), driverUserId.trim(), driverProfileId.trim())
+            .filter { it.isNotBlank() }
+            .toSet()
+        val assignedToDriver = driverIds.any { it in driverKeys }
         return when (status) {
-            OrderStatus.READY_FOR_PICKUP -> cleanDriverId.isBlank() || assignedToDriver
+            OrderStatus.READY_FOR_PICKUP -> driverIds.isEmpty() || assignedToDriver
             OrderStatus.PICKED_UP,
             OrderStatus.ON_THE_WAY,
             OrderStatus.DELIVERED -> assignedToDriver

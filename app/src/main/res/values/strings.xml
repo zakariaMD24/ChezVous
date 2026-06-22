@@ -2,9 +2,16 @@
     <string name="theme">Theme</string>
     <string name="theme_follows_system">Le theme suit le reglage de votre appareil.</string>
     <string name="theme_toggle_content_description">Changer le theme</string>
+    <string name="theme_system">Systeme</string>
+    <string name="theme_light">Clair</string>
+    <string name="theme_dark">Sombre</string>
     <string name="notifications">Notifications</string>
     <string name="notifications_content_description">Ouvrir les notifications</string>
     <string name="no_notifications_yet">Aucune notification pour le moment.</string>
+    <string name="delivery_scan_pickup_qr">Scanner le QR de retrait</string>
+    <string name="delivery_qr_scan_unavailable">Le scan QR n\'est pas disponible dans cette demo. Saisissez le code de retrait manuellement.</string>
+    <string name="ok">OK</string>
+    <string name="review_rate_order_hint">Appuyez pour noter ce restaurant</string>
     <string name="app_name">ChezVous</string>
     <string name="home_greeting">Bonjour</string>
     <string name="home_question">Que voulez-vous manger aujourd’hui ?</string>

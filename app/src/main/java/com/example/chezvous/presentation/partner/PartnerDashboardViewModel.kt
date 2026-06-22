@@ -2,6 +2,7 @@ package com.example.chezvous.presentation.partner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.chezvous.data.model.AppNotification
 import com.example.chezvous.data.model.CustomizationOption
 import com.example.chezvous.data.model.Driver
 import com.example.chezvous.data.model.FoodItem
@@ -12,6 +13,7 @@ import com.example.chezvous.data.model.User
 import com.example.chezvous.data.model.UserRoles
 import com.example.chezvous.data.repository.AuthRepository
 import com.example.chezvous.data.repository.DriverRepository
+import com.example.chezvous.data.repository.NotificationRepository
 import com.example.chezvous.data.repository.OrderRepository
 import com.example.chezvous.data.repository.RestaurantRepository
 import com.example.chezvous.data.repository.UserRepository
@@ -57,6 +59,7 @@ class PartnerDashboardViewModel : ViewModel() {
     private val restaurantRepository = RestaurantRepository()
     private val orderRepository = OrderRepository()
     private val driverRepository = DriverRepository()
+    private val notificationRepository = NotificationRepository()
 
     private var ordersJob: Job? = null
     private var menuJob: Job? = null
@@ -483,6 +486,10 @@ class PartnerDashboardViewModel : ViewModel() {
                 driverId = linkedDriverId
             )
                 .onSuccess {
+                    createAdminNotification(
+                        title = "Worker ajoute",
+                        message = "${fullName.trim()} a ete prepare comme $cleanRole."
+                    )
                     _uiState.update {
                         it.copy(
                             isSaving = false,
@@ -534,7 +541,11 @@ class PartnerDashboardViewModel : ViewModel() {
             _uiState.update { it.copy(isSaving = true, message = null, errorMessage = null) }
 
             restaurantRepository.createRestaurant(restaurant)
-                .onSuccess {
+                .onSuccess { restaurantId ->
+                    createAdminNotification(
+                        title = "Restaurant ajoute",
+                        message = "${restaurant.copy(id = restaurantId).name} est pret a etre configure."
+                    )
                     _uiState.update {
                         it.copy(
                             isSaving = false,
@@ -550,6 +561,26 @@ class PartnerDashboardViewModel : ViewModel() {
                         )
                     }
                 }
+        }
+    }
+
+    private fun createAdminNotification(
+        title: String,
+        message: String
+    ) {
+        val adminUserId = authRepository.currentUserId().orEmpty()
+        if (adminUserId.isBlank()) return
+
+        viewModelScope.launch {
+            notificationRepository.createNotification(
+                AppNotification(
+                    userId = adminUserId,
+                    roleTarget = UserRoles.ADMIN,
+                    title = title,
+                    message = message,
+                    type = "ADMIN_ACTION"
+                )
+            )
         }
     }
 

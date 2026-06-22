@@ -25,6 +25,8 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,10 +52,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.chezvous.R
+import com.example.chezvous.data.model.AppNotification
 import com.example.chezvous.data.model.Restaurant
 import com.example.chezvous.ui.components.ActiveFilterChipItem
 import com.example.chezvous.ui.components.ActiveFilterChipRow
 import com.example.chezvous.ui.components.CategoryChip
+import com.example.chezvous.ui.components.ChezVousCard
 import com.example.chezvous.ui.components.ChezVousSearchBar
 import com.example.chezvous.ui.components.FilterOptionChipItem
 import com.example.chezvous.ui.components.FilterOptionChipRow
@@ -64,8 +68,10 @@ import com.example.chezvous.ui.components.SheetOptionRow
 import com.example.chezvous.ui.components.SheetSectionTitle
 import com.example.chezvous.ui.components.chezVousScreenPadding
 import com.example.chezvous.ui.components.chezVousSheetPadding
+import com.example.chezvous.ui.theme.AppThemeController
 import com.example.chezvous.ui.theme.ChezVousSize
 import com.example.chezvous.ui.theme.ChezVousSpacing
+import com.example.chezvous.ui.theme.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +82,7 @@ fun HomeScreen(
 ) {
     val viewModel: HomeViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
+    val themeMode by AppThemeController.themeMode.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
     var showThemeSheet by remember { mutableStateOf(false) }
@@ -85,9 +92,13 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 showPartnerDashboard = uiState.showPartnerDashboard,
+                unreadNotificationCount = uiState.unreadNotificationCount,
                 onPartnerClick = onPartnerClick,
                 onThemeClick = { showThemeSheet = true },
-                onNotificationsClick = { showNotificationsSheet = true }
+                onNotificationsClick = {
+                    showNotificationsSheet = true
+                    viewModel.markNotificationsRead()
+                }
             )
         }
     ) { paddingValues ->
@@ -206,17 +217,16 @@ fun HomeScreen(
     }
 
     if (showThemeSheet) {
-        HomeInfoSheet(
-            title = stringResource(R.string.theme),
-            message = stringResource(R.string.theme_follows_system),
+        HomeThemeSheet(
+            selectedMode = themeMode,
+            onModeSelected = AppThemeController::setThemeMode,
             onDismiss = { showThemeSheet = false }
         )
     }
 
     if (showNotificationsSheet) {
-        HomeInfoSheet(
-            title = stringResource(R.string.notifications),
-            message = stringResource(R.string.no_notifications_yet),
+        HomeNotificationsSheet(
+            notifications = uiState.notifications,
             onDismiss = { showNotificationsSheet = false }
         )
     }
@@ -449,6 +459,98 @@ private fun HomeInfoSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeThemeSheet(
+    selectedMode: ThemeMode,
+    onModeSelected: (ThemeMode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .chezVousSheetPadding()
+                .padding(bottom = ChezVousSpacing.xl),
+            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
+        ) {
+            Text(
+                text = stringResource(R.string.theme),
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            FilterOptionChipRow(
+                options = ThemeMode.values().map { mode ->
+                    FilterOptionChipItem(
+                        label = mode.localizedThemeLabel(),
+                        selected = selectedMode == mode,
+                        onClick = { onModeSelected(mode) }
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeMode.localizedThemeLabel(): String {
+    return when (this) {
+        ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
+        ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+        ThemeMode.DARK -> stringResource(R.string.theme_dark)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeNotificationsSheet(
+    notifications: List<AppNotification>,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .chezVousSheetPadding()
+                .padding(bottom = ChezVousSpacing.xl),
+            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
+        ) {
+            Text(
+                text = stringResource(R.string.notifications),
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            if (notifications.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.no_notifications_yet),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                notifications.forEach { notification ->
+                    ChezVousCard {
+                        Column(
+                            modifier = Modifier.padding(ChezVousSpacing.md),
+                            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.xxs)
+                        ) {
+                            Text(
+                                text = notification.title,
+                                style = MaterialTheme.typography.titleSmall
+                            )
+
+                            Text(
+                                text = notification.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun EmptyRestaurantsState() {
     Column(
@@ -656,6 +758,7 @@ private fun HomeHeroChip(text: String) {
 @Composable
 private fun HomeTopBar(
     showPartnerDashboard: Boolean,
+    unreadNotificationCount: Int,
     onPartnerClick: () -> Unit,
     onThemeClick: () -> Unit,
     onNotificationsClick: () -> Unit
@@ -695,10 +798,25 @@ private fun HomeTopBar(
             }
 
             IconButton(onClick = onNotificationsClick) {
-                Icon(
-                    Icons.Outlined.NotificationsNone,
-                    contentDescription = stringResource(R.string.notifications_content_description)
-                )
+                if (unreadNotificationCount > 0) {
+                    BadgedBox(
+                        badge = {
+                            Badge {
+                                Text(unreadNotificationCount.coerceAtMost(9).toString())
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Outlined.NotificationsNone,
+                            contentDescription = stringResource(R.string.notifications_content_description)
+                        )
+                    }
+                } else {
+                    Icon(
+                        Icons.Outlined.NotificationsNone,
+                        contentDescription = stringResource(R.string.notifications_content_description)
+                    )
+                }
             }
 
             if (showPartnerDashboard) {

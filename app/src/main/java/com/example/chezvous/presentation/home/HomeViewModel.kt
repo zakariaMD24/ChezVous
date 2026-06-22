@@ -3,12 +3,15 @@ package com.example.chezvous.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chezvous.data.model.FoodItem
+import com.example.chezvous.data.model.AppNotification
 import com.example.chezvous.data.model.Restaurant
 import com.example.chezvous.data.model.UserRoles
 import com.example.chezvous.data.repository.AuthRepository
 import com.example.chezvous.data.repository.CartRepository
+import com.example.chezvous.data.repository.NotificationRepository
 import com.example.chezvous.data.repository.RestaurantRepository
 import com.example.chezvous.data.repository.UserRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -47,7 +50,8 @@ data class HomeUiState(
     val onlyOpen: Boolean = false,
     val sortOption: RestaurantSortOption = RestaurantSortOption.RECOMMENDED,
     val cartItemCount: Int = 0,
-    val showPartnerDashboard: Boolean = false
+    val showPartnerDashboard: Boolean = false,
+    val notifications: List<AppNotification> = emptyList()
 ) {
     val activeFilterCount: Int
         get() = listOf(
@@ -57,6 +61,9 @@ data class HomeUiState(
             maxMinimumOrder < DEFAULT_MAX_MINIMUM_ORDER,
             onlyOpen
         ).count { it }
+
+    val unreadNotificationCount: Int
+        get() = notifications.count { !it.isRead && it.userId.isNotBlank() }
 }
 
 class HomeViewModel : ViewModel() {
@@ -64,6 +71,8 @@ class HomeViewModel : ViewModel() {
     private val restaurantRepository = RestaurantRepository()
     private val authRepository = AuthRepository()
     private val userRepository = UserRepository()
+    private val notificationRepository = NotificationRepository()
+    private var notificationsJob: Job? = null
 
     private var allRestaurants = restaurantRepository.getRestaurants()
     private var allMenuItems = restaurantRepository.getAllMenuItems()
@@ -107,11 +116,25 @@ class HomeViewModel : ViewModel() {
         authRepository.currentUserId()?.let { userId ->
             viewModelScope.launch {
                 userRepository.observeUser(userId).collect { user ->
+                    val safeRole = UserRoles.safeRole(user?.role)
                     _uiState.update {
-                        it.copy(showPartnerDashboard = UserRoles.canUsePartnerDashboard(user?.role))
+                        it.copy(showPartnerDashboard = UserRoles.canUsePartnerDashboard(safeRole))
                     }
+                    observeNotifications(userId, safeRole)
                 }
             }
+        }
+    }
+
+    fun markNotificationsRead() {
+        val notificationIds = _uiState.value.notifications
+            .filter { notification -> !notification.isRead && notification.userId.isNotBlank() }
+            .map { notification -> notification.id }
+
+        if (notificationIds.isEmpty()) return
+
+        viewModelScope.launch {
+            notificationRepository.markAsRead(notificationIds)
         }
     }
 
@@ -266,6 +289,18 @@ class HomeViewModel : ViewModel() {
             .filter { it.matchesQuery(query) }
             .map { it.restaurantId }
             .toSet()
+    }
+
+    private fun observeNotifications(
+        userId: String,
+        role: String
+    ) {
+        notificationsJob?.cancel()
+        notificationsJob = viewModelScope.launch {
+            notificationRepository.observeNotifications(userId, role).collect { notifications ->
+                _uiState.update { it.copy(notifications = notifications) }
+            }
+        }
     }
 }
 

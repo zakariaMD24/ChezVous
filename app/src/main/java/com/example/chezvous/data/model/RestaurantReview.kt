@@ -5,6 +5,8 @@ data class RestaurantReview(
     val orderId: String = "",
     val restaurantId: String = "",
     val userId: String = "",
+    val customerId: String = "",
+    val customerName: String = "",
     val rating: Int = 0,
     val comment: String = "",
     val createdAt: Long = System.currentTimeMillis()

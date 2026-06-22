@@ -128,6 +128,8 @@ class OrderTrackingViewModel : ViewModel() {
                     orderId = order.id,
                     restaurantId = order.restaurantId,
                     userId = userId,
+                    customerId = userId,
+                    customerName = order.customerName,
                     rating = rating,
                     comment = comment
                 )

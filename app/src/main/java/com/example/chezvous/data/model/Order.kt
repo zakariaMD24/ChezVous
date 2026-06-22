@@ -17,9 +17,14 @@ data class Order(
     val paymentStatus: PaymentStatus = PaymentStatus.PENDING,
     val status: OrderStatus = OrderStatus.PENDING,
     val driverId: String = "",
+    val driverUserId: String = "",
+    val driverProfileId: String = "",
     val pickupCode: String = "",
     val pickupCodeValidatedAt: Long = 0L,
     val estimatedDeliveryTime: String = "",
+    val updatedAt: Long = 0L,
+    val pickedUpAt: Long = 0L,
+    val deliveredAt: Long = 0L,
     val createdAt: Long = System.currentTimeMillis()
 )
 

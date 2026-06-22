@@ -154,7 +154,11 @@ service cloud.firestore {
         && request.resource.data.rating >= 0
         && request.resource.data.rating <= 5
         && request.resource.data.ratingCount is int
-        && request.resource.data.ratingCount >= 1;
+        && request.resource.data.ratingCount == (
+          resource.data.keys().hasAny(["ratingCount"]) && resource.data.ratingCount is int
+            ? resource.data.ratingCount + 1
+            : 1
+        );
     }
 
     function validRestaurantReview(data) {
@@ -164,10 +168,50 @@ service cloud.firestore {
         && data.restaurantId is string
         && data.restaurantId != ""
         && data.userId == request.auth.uid
-        && data.rating is int
+        && data.customerId == request.auth.uid
+        && data.customerName is string
+        && data.rating is number
         && data.rating >= 1
         && data.rating <= 5
-        && data.comment is string;
+        && data.comment is string
+        && exists(/databases/$(database)/documents/orders/$(data.orderId))
+        && get(/databases/$(database)/documents/orders/$(data.orderId)).data.status == "DELIVERED"
+        && orderBelongsToCurrentUser(get(/databases/$(database)/documents/orders/$(data.orderId)).data)
+        && get(/databases/$(database)/documents/orders/$(data.orderId)).data.restaurantId == data.restaurantId;
+    }
+
+    function validNotificationData(data) {
+      return isSignedIn()
+        && data.id is string
+        && data.title is string
+        && data.title != ""
+        && data.message is string
+        && data.message != ""
+        && data.type is string
+        && data.isRead is bool
+        && data.createdAt is number
+        && data.userId is string
+        && data.roleTarget is string
+        && (
+          data.userId == request.auth.uid
+          || data.roleTarget in ["CUSTOMER", "PARTNER", "DRIVER", "ADMIN"]
+          || hasRole("ADMIN")
+        );
+    }
+
+    function canReadNotification(data) {
+      return isSignedIn()
+        && (
+          data.userId == request.auth.uid
+          || data.roleTarget == safeRole(currentUserData().role)
+          || hasRole("ADMIN")
+        );
+    }
+
+    function canMarkOwnNotificationRead() {
+      return resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["isRead"])
+        && request.resource.data.isRead == true;
     }
 
     function validMenuItemData(data) {
@@ -254,11 +298,41 @@ service cloud.firestore {
         );
     }
 
+    function dataDriverId(data) {
+      return (data.keys().hasAny(["driverId"]) && data.driverId is string) ? data.driverId : "";
+    }
+
+    function dataDriverUserId(data) {
+      return (data.keys().hasAny(["driverUserId"]) && data.driverUserId is string) ? data.driverUserId : "";
+    }
+
+    function dataDriverProfileId(data) {
+      return (data.keys().hasAny(["driverProfileId"]) && data.driverProfileId is string) ? data.driverProfileId : "";
+    }
+
+    function orderAssignedToCurrentDriver(data) {
+      return driverIdentityMatches(dataDriverId(data))
+        || driverIdentityMatches(dataDriverUserId(data))
+        || driverIdentityMatches(dataDriverProfileId(data));
+    }
+
+    function orderHasNoAssignedDriver(data) {
+      return dataDriverId(data) == ""
+        && dataDriverUserId(data) == ""
+        && dataDriverProfileId(data) == "";
+    }
+
     function requestedDriverIdIsCurrentDriver() {
-      return request.resource.data.driverId == linkedDriverId()
+      return (
+          request.resource.data.driverProfileId == linkedDriverId()
+          && request.resource.data.driverId == linkedDriverId()
+          && request.resource.data.driverUserId == request.auth.uid
+        )
         || (
           linkedDriverId() == ""
           && request.resource.data.driverId == request.auth.uid
+          && request.resource.data.driverUserId == request.auth.uid
+          && request.resource.data.driverProfileId == request.auth.uid
         );
     }
 
@@ -270,15 +344,20 @@ service cloud.firestore {
     function driverCanReadOrder() {
       return hasRole("DRIVER")
         && (
-          isReadyForPickupStatus(resource.data.status)
-          || driverIdentityMatches(resource.data.driverId)
+          (
+            isReadyForPickupStatus(resource.data.status)
+            && (
+              orderHasNoAssignedDriver(resource.data)
+              || orderAssignedToCurrentDriver(resource.data)
+            )
+          )
+          || orderAssignedToCurrentDriver(resource.data)
         );
     }
 
     function orderDriverIsOpenOrMine() {
-      return !resource.data.keys().hasAny(["driverId"])
-        || resource.data.driverId == ""
-        || driverIdentityMatches(resource.data.driverId);
+      return orderHasNoAssignedDriver(resource.data)
+        || orderAssignedToCurrentDriver(resource.data);
     }
 
     function driverCanUpdateOrder() {
@@ -286,7 +365,16 @@ service cloud.firestore {
         && (
           (
             request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(["status", "driverId", "pickupCodeValidation", "pickupCodeValidatedAt"])
+              .hasOnly([
+                "status",
+                "driverId",
+                "driverUserId",
+                "driverProfileId",
+                "pickupCodeValidation",
+                "pickupCodeValidatedAt",
+                "pickedUpAt",
+                "updatedAt"
+              ])
             && request.resource.data.status == "PICKED_UP"
             && isReadyForPickupStatus(resource.data.status)
             && orderDriverIsOpenOrMine()
@@ -294,20 +382,27 @@ service cloud.firestore {
             && request.resource.data.pickupCode == resource.data.pickupCode
             && request.resource.data.pickupCodeValidation == resource.data.pickupCode
             && request.resource.data.pickupCodeValidatedAt is number
+            && request.resource.data.pickedUpAt is number
+            && request.resource.data.updatedAt is number
           )
           || (
-            driverIdentityMatches(resource.data.driverId)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "driverId"])
+            orderAssignedToCurrentDriver(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(["status", "driverId", "driverUserId", "driverProfileId", "updatedAt"])
             && requestedDriverIdIsCurrentDriver()
             && request.resource.data.status == "ON_THE_WAY"
             && resource.data.status == "PICKED_UP"
+            && request.resource.data.updatedAt is number
           )
           || (
-            driverIdentityMatches(resource.data.driverId)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "driverId"])
+            orderAssignedToCurrentDriver(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(["status", "driverId", "driverUserId", "driverProfileId", "updatedAt", "deliveredAt"])
             && requestedDriverIdIsCurrentDriver()
             && request.resource.data.status == "DELIVERED"
             && resource.data.status == "ON_THE_WAY"
+            && request.resource.data.updatedAt is number
+            && request.resource.data.deliveredAt is number
           )
         );
     }
@@ -369,6 +464,13 @@ service cloud.firestore {
 
     match /workerInvitations/{invitationId} {
       allow read, create, update, delete: if hasRole("ADMIN");
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if canReadNotification(resource.data);
+      allow create: if validNotificationData(request.resource.data);
+      allow update: if canMarkOwnNotificationRead() || hasRole("ADMIN");
+      allow delete: if hasRole("ADMIN");
     }
 
     match /orders/{orderId} {

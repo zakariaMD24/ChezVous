@@ -32,10 +32,10 @@ data class DeliveryDashboardUiState(
             val driverKeys = driverKeys()
             val driverIsAvailable = driver?.isAvailable ?: true
             return orders.filter { order ->
-                val assignedToDriver = order.driverId.trim() in driverKeys
+                val assignedToDriver = order.assignedToDriver(driverKeys)
                 when (order.status) {
                     OrderStatus.READY_FOR_PICKUP -> {
-                        assignedToDriver || (driverIsAvailable && order.driverId.trim().isBlank())
+                        assignedToDriver || (driverIsAvailable && order.hasNoDriverAssigned())
                     }
                     OrderStatus.PICKED_UP,
                     OrderStatus.ON_THE_WAY -> assignedToDriver
@@ -52,7 +52,7 @@ data class DeliveryDashboardUiState(
         get() {
             val driverKeys = driverKeys()
             return orders.filter {
-                it.status == OrderStatus.DELIVERED && it.driverId.trim() in driverKeys
+                it.status == OrderStatus.DELIVERED && it.assignedToDriver(driverKeys)
             }
         }
 
@@ -81,7 +81,7 @@ class DeliveryDashboardViewModel : ViewModel() {
 
     fun updateOrderStatus(order: Order, status: OrderStatus) {
         val state = _uiState.value
-        if (order.driverId.trim() !in state.driverKeys() || !status.isDriverWritableStatus()) {
+        if (!order.assignedToDriver(state.driverKeys()) || !status.isDriverWritableStatus()) {
             _uiState.update {
                 it.copy(errorMessage = "Action non autorisee pour cette livraison.")
             }
@@ -109,7 +109,9 @@ class DeliveryDashboardViewModel : ViewModel() {
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            errorMessage = error.message ?: "Impossible de mettre a jour la livraison."
+                            errorMessage = error.friendlyDeliveryMessage(
+                                fallback = "Impossible de mettre a jour la livraison."
+                            )
                         )
                     }
                 }
@@ -120,7 +122,7 @@ class DeliveryDashboardViewModel : ViewModel() {
         val state = _uiState.value
         val driverId = state.driverId
         val driverKeys = state.driverKeys()
-        if (driverId.isBlank() || (order.driverId.isNotBlank() && order.driverId.trim() !in driverKeys)) {
+        if (driverId.isBlank() || (!order.hasNoDriverAssigned() && !order.assignedToDriver(driverKeys))) {
             _uiState.update {
                 it.copy(errorMessage = "Action non autorisee pour cette livraison.")
             }
@@ -148,7 +150,9 @@ class DeliveryDashboardViewModel : ViewModel() {
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            errorMessage = error.message ?: "Impossible de valider le retrait."
+                            errorMessage = error.friendlyDeliveryMessage(
+                                fallback = "Impossible de valider le retrait."
+                            )
                         )
                     }
                 }
@@ -278,4 +282,24 @@ fun OrderStatus.nextDriverStatus(): OrderStatus? {
 
 private fun OrderStatus.isDriverWritableStatus(): Boolean {
     return this == OrderStatus.ON_THE_WAY || this == OrderStatus.DELIVERED
+}
+
+private fun Order.assignedToDriver(driverKeys: Set<String>): Boolean {
+    return listOf(driverId, driverUserId, driverProfileId)
+        .map { it.trim() }
+        .any { it.isNotBlank() && it in driverKeys }
+}
+
+private fun Order.hasNoDriverAssigned(): Boolean {
+    return driverId.isBlank() && driverUserId.isBlank() && driverProfileId.isBlank()
+}
+
+private fun Throwable.friendlyDeliveryMessage(fallback: String): String {
+    val rawMessage = message.orEmpty()
+    return when {
+        rawMessage.contains("PERMISSION_DENIED", ignoreCase = true) ->
+            "Action refusee. Verifiez que ce compte livreur est autorise pour cette livraison."
+        rawMessage.isNotBlank() -> rawMessage
+        else -> fallback
+    }
 }
