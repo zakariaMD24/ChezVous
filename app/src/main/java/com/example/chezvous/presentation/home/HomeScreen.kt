@@ -72,7 +72,8 @@ fun HomeScreen(
     onRestaurantClick: (String) -> Unit = {},
     onViewAllRestaurants: () -> Unit = {},
     onPartnerClick: () -> Unit = {},
-    onAdminDetected: () -> Unit = {}
+    onAdminDetected: () -> Unit = {},
+    onRestaurantAdminDetected: () -> Unit = {}
 ) {
     val viewModel: HomeViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
@@ -81,6 +82,10 @@ fun HomeScreen(
 
     LaunchedEffect(uiState.isAdminUser) {
         if (uiState.isAdminUser) onAdminDetected()
+    }
+
+    LaunchedEffect(uiState.isRestaurantAdmin) {
+        if (uiState.isRestaurantAdmin) onRestaurantAdminDetected()
     }
 
     Scaffold(

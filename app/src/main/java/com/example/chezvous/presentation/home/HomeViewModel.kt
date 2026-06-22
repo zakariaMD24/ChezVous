@@ -48,7 +48,8 @@ data class HomeUiState(
     val sortOption: RestaurantSortOption = RestaurantSortOption.RECOMMENDED,
     val cartItemCount: Int = 0,
     val showPartnerDashboard: Boolean = false,
-    val isAdminUser: Boolean = false
+    val isAdminUser: Boolean = false,
+    val isRestaurantAdmin: Boolean = false
 ) {
     val activeFilterCount: Int
         get() = listOf(
@@ -111,7 +112,8 @@ class HomeViewModel : ViewModel() {
                     _uiState.update {
                         it.copy(
                             showPartnerDashboard = user?.role.isPartnerRole(),
-                            isAdminUser = user?.role == UserRoles.ADMIN
+                            isAdminUser = user?.role == UserRoles.ADMIN,
+                            isRestaurantAdmin = user?.role == UserRoles.ADMIN_RESTAURANT
                         )
                     }
                 }

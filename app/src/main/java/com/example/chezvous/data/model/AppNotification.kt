@@ -6,6 +6,7 @@ data class AppNotification(
     val title: String = "",
     val body: String = "",
     val relatedUserId: String = "",
+    val restaurantId: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val isRead: Boolean = false
 )

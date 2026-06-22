@@ -137,6 +137,19 @@ class RestaurantRepository(
         }
     }
 
+    suspend fun deleteMenuItem(itemId: String): Result<Unit> {
+        return try {
+            firestore
+                .collection(FirestoreCollections.MENU_ITEMS)
+                .document(itemId)
+                .delete()
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun updateMenuItemAvailability(
         foodItemId: String,
         isAvailable: Boolean

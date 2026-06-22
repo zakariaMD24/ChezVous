@@ -135,6 +135,7 @@ class OrderRepository(
                     title = "Nouvelle commande",
                     body = "$customerName a passé une commande chez ${order.restaurantName}",
                     relatedUserId = order.userId,
+                    restaurantId = order.restaurantId,
                     createdAt = System.currentTimeMillis()
                 )
             )

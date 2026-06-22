@@ -41,7 +41,7 @@ fun AdminBottomBar(
                             )
                         }
                     } else {
-                        Icon(
+                        Icon( 
                             imageVector = section.icon,
                             contentDescription = section.label
                         )

@@ -25,6 +25,7 @@ import com.example.chezvous.presentation.orders.OrderTrackingScreen
 import com.example.chezvous.presentation.orders.OrdersScreen
 import com.example.chezvous.presentation.admin.AdminDashboardScreen
 import com.example.chezvous.presentation.partner.PartnerDashboardScreen
+import com.example.chezvous.presentation.restaurantowner.RestaurantOwnerHomeScreen
 import com.example.chezvous.presentation.profile.ProfileScreen
 import com.example.chezvous.presentation.restaurant.RestaurantDetailsScreen
 import com.example.chezvous.ui.components.ChezVousBottomBar
@@ -127,6 +128,11 @@ fun ChezVousNavHost() {
                     },
                     onAdminDetected = {
                         navController.navigate(ChezVousRoutes.ADMIN_DASHBOARD) {
+                            popUpTo(ChezVousRoutes.HOME) { inclusive = true }
+                        }
+                    },
+                    onRestaurantAdminDetected = {
+                        navController.navigate(ChezVousRoutes.RESTAURANT_OWNER_HOME) {
                             popUpTo(ChezVousRoutes.HOME) { inclusive = true }
                         }
                     }
@@ -242,6 +248,16 @@ fun ChezVousNavHost() {
                     onLoggedOut = {
                         navController.navigate(ChezVousRoutes.LOGIN) {
                             popUpTo(ChezVousRoutes.ADMIN_DASHBOARD) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable(ChezVousRoutes.RESTAURANT_OWNER_HOME) {
+                RestaurantOwnerHomeScreen(
+                    onLoggedOut = {
+                        navController.navigate(ChezVousRoutes.LOGIN) {
+                            popUpTo(ChezVousRoutes.RESTAURANT_OWNER_HOME) { inclusive = true }
                         }
                     }
                 )
