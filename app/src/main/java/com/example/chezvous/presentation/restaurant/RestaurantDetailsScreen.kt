@@ -596,6 +596,16 @@ private fun RestaurantHeaderImage(restaurant: Restaurant?) {
 
 @Composable
 private fun RestaurantInfoRow(restaurant: Restaurant?) {
+    val ratingText = when {
+        restaurant == null -> "-"
+        restaurant.ratingCount > 0 -> stringResource(
+            R.string.restaurant_rating_with_count,
+            restaurant.rating,
+            restaurant.ratingCount
+        )
+        else -> stringResource(R.string.restaurant_no_reviews_yet)
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -609,7 +619,7 @@ private fun RestaurantInfoRow(restaurant: Restaurant?) {
         Spacer(modifier = Modifier.width(4.dp))
 
         Text(
-            text = restaurant?.rating?.toString() ?: "-",
+            text = ratingText,
             style = MaterialTheme.typography.bodySmall
         )
 

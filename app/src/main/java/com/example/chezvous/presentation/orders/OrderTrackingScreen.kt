@@ -24,6 +24,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -33,9 +37,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chezvous.R
 import com.example.chezvous.data.model.CartItem
 import com.example.chezvous.data.model.Order
+import com.example.chezvous.data.model.OrderStatus
 import com.example.chezvous.data.model.PaymentStatus
+import com.example.chezvous.ui.components.CategoryChip
 import com.example.chezvous.ui.components.ChezVousButton
 import com.example.chezvous.ui.components.ChezVousCard
+import com.example.chezvous.ui.components.ChezVousTextField
 import com.example.chezvous.ui.components.ChezVousTopBar
 import com.example.chezvous.ui.components.DriverCard
 import com.example.chezvous.ui.components.OrderStatusChip
@@ -102,6 +109,7 @@ fun OrderTrackingScreen(
                 OrderTrackingContent(
                     uiState = uiState,
                     onCancelOrder = viewModel::cancelOrder,
+                    onSubmitReview = viewModel::submitReview,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
@@ -115,6 +123,7 @@ fun OrderTrackingScreen(
 private fun OrderTrackingContent(
     uiState: OrderTrackingUiState,
     onCancelOrder: () -> Unit,
+    onSubmitReview: (Int, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val order = uiState.order ?: return
@@ -151,6 +160,15 @@ private fun OrderTrackingContent(
             DeliveryAndPaymentCard(order = order)
         }
 
+        if (order.status == OrderStatus.DELIVERED) {
+            item {
+                ReviewCard(
+                    isSaving = uiState.isReviewSaving,
+                    onSubmitReview = onSubmitReview
+                )
+            }
+        }
+
         if (uiState.actionMessage != null) {
             item {
                 MessageSurface(
@@ -182,6 +200,53 @@ private fun OrderTrackingContent(
 
         item {
             Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun ReviewCard(
+    isSaving: Boolean,
+    onSubmitReview: (Int, String) -> Unit
+) {
+    var rating by remember { mutableIntStateOf(5) }
+    var comment by remember { mutableStateOf("") }
+
+    ChezVousCard {
+        Column(
+            modifier = Modifier.padding(ChezVousSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
+        ) {
+            Text(
+                text = stringResource(R.string.review_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)) {
+                (1..5).forEach { value ->
+                    CategoryChip(
+                        text = value.toString(),
+                        selected = rating == value,
+                        onClick = { rating = value }
+                    )
+                }
+            }
+
+            ChezVousTextField(
+                value = comment,
+                onValueChange = { comment = it.take(140) },
+                label = stringResource(R.string.review_comment_optional),
+                singleLine = false,
+                enabled = !isSaving
+            )
+
+            ChezVousButton(
+                text = stringResource(R.string.review_submit),
+                loadingText = stringResource(R.string.review_saving),
+                isLoading = isSaving,
+                onClick = { onSubmitReview(rating, comment) }
+            )
         }
     }
 }
@@ -317,7 +382,7 @@ private fun DeliveryAndPaymentCard(order: Order) {
                 Spacer(modifier = Modifier.size(10.dp))
 
                 Text(
-                    text = "Livraison",
+                    text = stringResource(R.string.delivery),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -329,10 +394,10 @@ private fun DeliveryAndPaymentCard(order: Order) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            SummaryLine("Paiement", order.paymentStatus.customerLabel())
-            SummaryLine("Sous-total", order.subtotal.asDhPrice())
-            SummaryLine("Livraison", order.deliveryFee.asDhPrice())
-            SummaryLine("Total", order.totalPrice.asDhPrice(), strong = true)
+            SummaryLine(stringResource(R.string.payment), order.paymentStatus.customerLabel())
+            SummaryLine(stringResource(R.string.subtotal), order.subtotal.asDhPrice())
+            SummaryLine(stringResource(R.string.delivery), order.deliveryFee.asDhPrice())
+            SummaryLine(stringResource(R.string.total), order.totalPrice.asDhPrice(), strong = true)
         }
     }
 }
@@ -426,11 +491,14 @@ private fun TrackingMessageState(
     }
 }
 
+@Composable
 private fun PaymentStatus.customerLabel(): String {
     return when (this) {
-        PaymentStatus.PENDING -> "En attente"
-        PaymentStatus.PAID -> "Paye"
-        PaymentStatus.FAILED -> "Refuse"
-        PaymentStatus.CASH_ON_DELIVERY -> "Paiement a la livraison"
+        PaymentStatus.PENDING -> stringResource(R.string.payment_pending)
+        PaymentStatus.PENDING_CASH -> stringResource(R.string.payment_pending_cash)
+        PaymentStatus.PAID -> stringResource(R.string.payment_paid)
+        PaymentStatus.PAID_SIMULATED -> stringResource(R.string.payment_paid_simulated)
+        PaymentStatus.FAILED -> stringResource(R.string.payment_failed)
+        PaymentStatus.CASH_ON_DELIVERY -> stringResource(R.string.payment_cash_on_delivery)
     }
 }

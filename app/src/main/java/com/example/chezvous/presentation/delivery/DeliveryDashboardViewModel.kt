@@ -13,13 +13,13 @@ import com.example.chezvous.data.repository.UserRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class DeliveryDashboardUiState(
     val isLoading: Boolean = true,
     val isAuthorized: Boolean = false,
+    val currentUserId: String = "",
     val driverId: String = "",
     val driver: Driver? = null,
     val orders: List<Order> = emptyList(),
@@ -28,15 +28,39 @@ data class DeliveryDashboardUiState(
     val errorMessage: String? = null
 ) {
     val activeOrders: List<Order>
-        get() = orders.filter {
-            it.status == OrderStatus.READY_FOR_PICKUP ||
-                    it.status == OrderStatus.ON_THE_WAY
+        get() {
+            val driverKeys = driverKeys()
+            val driverIsAvailable = driver?.isAvailable ?: true
+            return orders.filter { order ->
+                val assignedToDriver = order.driverId.trim() in driverKeys
+                when (order.status) {
+                    OrderStatus.READY_FOR_PICKUP -> {
+                        assignedToDriver || (driverIsAvailable && order.driverId.trim().isBlank())
+                    }
+                    OrderStatus.PICKED_UP,
+                    OrderStatus.ON_THE_WAY -> assignedToDriver
+                    OrderStatus.PENDING,
+                    OrderStatus.ACCEPTED,
+                    OrderStatus.PREPARING,
+                    OrderStatus.DELIVERED,
+                    OrderStatus.CANCELLED -> false
+                }
+            }
         }
 
     val completedOrders: List<Order>
-        get() = orders.filter {
-            it.status == OrderStatus.DELIVERED || it.status == OrderStatus.CANCELLED
+        get() {
+            val driverKeys = driverKeys()
+            return orders.filter {
+                it.status == OrderStatus.DELIVERED && it.driverId.trim() in driverKeys
+            }
         }
+
+    fun driverKeys(): Set<String> {
+        return setOf(currentUserId.trim(), driverId.trim())
+            .filter { it.isNotBlank() }
+            .toSet()
+    }
 }
 
 class DeliveryDashboardViewModel : ViewModel() {
@@ -56,7 +80,8 @@ class DeliveryDashboardViewModel : ViewModel() {
     }
 
     fun updateOrderStatus(order: Order, status: OrderStatus) {
-        if (order.driverId != _uiState.value.driverId || !status.isDriverWritableStatus()) {
+        val state = _uiState.value
+        if (order.driverId.trim() !in state.driverKeys() || !status.isDriverWritableStatus()) {
             _uiState.update {
                 it.copy(errorMessage = "Action non autorisee pour cette livraison.")
             }
@@ -66,7 +91,12 @@ class DeliveryDashboardViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, message = null, errorMessage = null) }
 
-            orderRepository.updateOrderStatus(order.id, status)
+            orderRepository.updateDriverOrderStatus(
+                orderId = order.id,
+                driverId = _uiState.value.driverId,
+                currentUserId = _uiState.value.currentUserId,
+                status = status
+            )
                 .onSuccess {
                     _uiState.update {
                         it.copy(
@@ -87,8 +117,10 @@ class DeliveryDashboardViewModel : ViewModel() {
     }
 
     fun validatePickup(order: Order, pickupCode: String) {
-        val driverId = _uiState.value.driverId
-        if (driverId.isBlank() || (order.driverId.isNotBlank() && order.driverId != driverId)) {
+        val state = _uiState.value
+        val driverId = state.driverId
+        val driverKeys = state.driverKeys()
+        if (driverId.isBlank() || (order.driverId.isNotBlank() && order.driverId.trim() !in driverKeys)) {
             _uiState.update {
                 it.copy(errorMessage = "Action non autorisee pour cette livraison.")
             }
@@ -98,12 +130,17 @@ class DeliveryDashboardViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, message = null, errorMessage = null) }
 
-            orderRepository.validatePickup(order.id, pickupCode, _uiState.value.driverId)
+            orderRepository.validatePickup(
+                orderId = order.id,
+                pickupCode = pickupCode,
+                driverId = _uiState.value.driverId,
+                currentUserId = _uiState.value.currentUserId
+            )
                 .onSuccess {
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            message = "Retrait valide. Livraison en route."
+                            message = "Retrait valide. Commande prise en charge."
                         )
                     }
                 }
@@ -145,6 +182,15 @@ class DeliveryDashboardViewModel : ViewModel() {
         }
     }
 
+    fun refresh() {
+        val state = _uiState.value
+        val driverId = state.driverId
+        if (driverId.isBlank()) return
+
+        observeDriverData(state.currentUserId, driverId)
+        _uiState.update { it.copy(message = "Liste actualisee.", errorMessage = null) }
+    }
+
     fun clearMessages() {
         _uiState.update { it.copy(message = null, errorMessage = null) }
     }
@@ -161,34 +207,40 @@ class DeliveryDashboardViewModel : ViewModel() {
 
         viewModelScope.launch {
             userRepository.observeUser(userId).collect { user ->
-                val role = user?.role ?: UserRoles.CUSTOMER
-                val driverId = user?.driverId.orEmpty()
-                val isAuthorized = UserRoles.canUseDriverDashboard(role) && driverId.isNotBlank()
+                val role = UserRoles.safeRole(user?.role)
+                val driverId = user?.driverId.orEmpty().ifBlank { userId }
+                val isAuthorized = UserRoles.canUseDriverDashboard(role)
 
                 _uiState.update {
                     it.copy(
-                        isLoading = false,
+                        isLoading = isAuthorized,
                         isAuthorized = isAuthorized,
+                        currentUserId = userId,
                         driverId = driverId,
                         errorMessage = when {
                             role != UserRoles.DRIVER -> "Ce compte n'est pas un compte livreur."
-                            driverId.isBlank() -> "Ce livreur n'est pas encore lie a une fiche livreur."
                             else -> null
                         }
                     )
                 }
 
-                observeDriverData(driverId.takeIf { isAuthorized }.orEmpty())
+                observeDriverData(
+                    currentUserId = userId.takeIf { isAuthorized }.orEmpty(),
+                    driverId = driverId.takeIf { isAuthorized }.orEmpty()
+                )
             }
         }
     }
 
-    private fun observeDriverData(driverId: String) {
+    private fun observeDriverData(
+        currentUserId: String,
+        driverId: String
+    ) {
         driverJob?.cancel()
         ordersJob?.cancel()
 
         if (driverId.isBlank()) {
-            _uiState.update { it.copy(driver = null, orders = emptyList()) }
+            _uiState.update { it.copy(isLoading = false, driver = null, orders = emptyList()) }
             return
         }
 
@@ -199,17 +251,13 @@ class DeliveryDashboardViewModel : ViewModel() {
         }
 
         ordersJob = viewModelScope.launch {
-            combine(
-                orderRepository.observeDriverOrders(driverId),
-                orderRepository.observeReadyForPickupOrders()
-            ) { assignedOrders, readyOrders ->
-                (assignedOrders + readyOrders.filter { order ->
-                    order.driverId.isBlank() || order.driverId == driverId
-                })
-                    .distinctBy { it.id }
-                    .sortedByDescending { it.createdAt }
-            }.collect { orders ->
-                _uiState.update { it.copy(orders = orders) }
+            orderRepository.observeDriverVisibleOrders(currentUserId, driverId).collect { orders ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        orders = orders
+                    )
+                }
             }
         }
     }
@@ -217,10 +265,11 @@ class DeliveryDashboardViewModel : ViewModel() {
 
 fun OrderStatus.nextDriverStatus(): OrderStatus? {
     return when (this) {
-        OrderStatus.READY_FOR_PICKUP -> OrderStatus.ON_THE_WAY
+        OrderStatus.READY_FOR_PICKUP -> OrderStatus.PICKED_UP
+        OrderStatus.PICKED_UP -> OrderStatus.ON_THE_WAY
         OrderStatus.ON_THE_WAY -> OrderStatus.DELIVERED
         OrderStatus.PENDING,
-        OrderStatus.CONFIRMED,
+        OrderStatus.ACCEPTED,
         OrderStatus.PREPARING,
         OrderStatus.DELIVERED,
         OrderStatus.CANCELLED -> null
@@ -228,5 +277,5 @@ fun OrderStatus.nextDriverStatus(): OrderStatus? {
 }
 
 private fun OrderStatus.isDriverWritableStatus(): Boolean {
-    return this == OrderStatus.DELIVERED
+    return this == OrderStatus.ON_THE_WAY || this == OrderStatus.DELIVERED
 }

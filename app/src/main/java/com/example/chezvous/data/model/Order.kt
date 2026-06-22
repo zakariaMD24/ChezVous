@@ -3,6 +3,8 @@ package com.example.chezvous.data.model
 data class Order(
     val id: String = "",
     val userId: String = "",
+    val customerName: String = "",
+    val customerPhone: String = "",
     val restaurantId: String = "",
     val restaurantName: String = "",
     val items: List<CartItem> = emptyList(),
@@ -10,6 +12,7 @@ data class Order(
     val deliveryFee: Double = 0.0,
     val totalPrice: Double = 0.0,
     val deliveryAddress: String = "",
+    val deliveryNote: String = "",
     val paymentMethod: String = "",
     val paymentStatus: PaymentStatus = PaymentStatus.PENDING,
     val status: OrderStatus = OrderStatus.PENDING,
@@ -22,9 +25,10 @@ data class Order(
 
 enum class OrderStatus {
     PENDING,
-    CONFIRMED,
+    ACCEPTED,
     PREPARING,
     READY_FOR_PICKUP,
+    PICKED_UP,
     ON_THE_WAY,
     DELIVERED,
     CANCELLED
@@ -32,7 +36,9 @@ enum class OrderStatus {
 
 enum class PaymentStatus {
     PENDING,
+    PENDING_CASH,
     PAID,
+    PAID_SIMULATED,
     FAILED,
     CASH_ON_DELIVERY
 }

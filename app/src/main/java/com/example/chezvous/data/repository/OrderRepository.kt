@@ -21,11 +21,31 @@ class OrderRepository(
 ) {
     private companion object {
         val fallbackOrders = MutableStateFlow<List<Order>>(emptyList())
+        val readyForPickupStatusValues = listOf(
+            OrderStatus.READY_FOR_PICKUP.name,
+            "Ready for pickup",
+            "ready_for_pickup",
+            "READY_FOR_PICK_UP",
+            "READY_FOR_DELIVERY",
+            "READY"
+        )
     }
 
     fun observeUserOrders(userId: String): Flow<List<Order>> {
         return callbackFlow {
-            val registration = firestore
+            var userIdOrders = emptyList<Order>()
+            var legacyCustomerIdOrders = emptyList<Order>()
+
+            fun publishOrders() {
+                trySend(
+                    (userIdOrders + legacyCustomerIdOrders)
+                        .distinctBy { it.id }
+                        .filter { it.userId == userId }
+                        .sortedByDescending { it.createdAt }
+                )
+            }
+
+            val userIdRegistration = firestore
                 .collection(FirestoreCollections.ORDERS)
                 .whereEqualTo("userId", userId)
                 .addSnapshotListener { snapshot, error ->
@@ -38,13 +58,29 @@ class OrderRepository(
                         return@addSnapshotListener
                     }
 
-                    val orders = snapshot.documents
+                    userIdOrders = snapshot.documents
                         .mapNotNull { it.toOrder() }
-                        .sortedByDescending { it.createdAt }
-                    trySend(orders)
+                    publishOrders()
                 }
 
-            awaitClose { registration.remove() }
+            val legacyCustomerIdRegistration = firestore
+                .collection(FirestoreCollections.ORDERS)
+                .whereEqualTo("customerId", userId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) {
+                        publishOrders()
+                        return@addSnapshotListener
+                    }
+
+                    legacyCustomerIdOrders = snapshot.documents
+                        .mapNotNull { it.toOrder() }
+                    publishOrders()
+                }
+
+            awaitClose {
+                userIdRegistration.remove()
+                legacyCustomerIdRegistration.remove()
+            }
         }.catch {
             emit(
                 fallbackOrders.value
@@ -120,7 +156,7 @@ class OrderRepository(
         return callbackFlow {
             val registration = firestore
                 .collection(FirestoreCollections.ORDERS)
-                .whereEqualTo("status", OrderStatus.READY_FOR_PICKUP.name)
+                .whereIn("status", readyForPickupStatusValues)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null || snapshot == null) {
                         trySend(
@@ -143,6 +179,124 @@ class OrderRepository(
                 fallbackOrders.value
                     .filter { it.status == OrderStatus.READY_FOR_PICKUP }
                     .sortedByDescending { it.createdAt }
+            )
+        }
+    }
+
+    fun observeDriverVisibleOrders(
+        currentUserId: String,
+        driverProfileId: String
+    ): Flow<List<Order>> {
+        return callbackFlow {
+            val driverKeys = setOf(currentUserId.trim(), driverProfileId.trim())
+                .filter { it.isNotBlank() }
+                .toSet()
+
+            if (driverKeys.isEmpty()) {
+                trySend(emptyList())
+                awaitClose { }
+                return@callbackFlow
+            }
+
+            var readyOrders: List<Order>? = null
+            var profileAssignedOrders: List<Order>? = null
+            var userAssignedOrders: List<Order>? = if (currentUserId == driverProfileId) {
+                emptyList()
+            } else {
+                null
+            }
+
+            fun mergedVisibleOrders(): List<Order> {
+                val availableReadyOrders = readyOrders.orEmpty()
+                    .filter { order -> order.isVisibleToDriver(driverKeys) }
+                val assignedOrders = profileAssignedOrders.orEmpty() + userAssignedOrders.orEmpty()
+                return (availableReadyOrders + assignedOrders)
+                    .filter { order -> order.isVisibleToDriver(driverKeys) }
+                    .distinctBy { it.id }
+                    .sortedWith(
+                        compareByDescending<Order> { it.status != OrderStatus.DELIVERED }
+                            .thenByDescending { it.createdAt }
+                    )
+            }
+
+            fun publishIfReady() {
+                if (readyOrders == null || profileAssignedOrders == null || userAssignedOrders == null) {
+                    return
+                }
+                trySend(mergedVisibleOrders())
+            }
+
+            val readyRegistration = firestore
+                .collection(FirestoreCollections.ORDERS)
+                .whereIn("status", readyForPickupStatusValues)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) {
+                        if (readyOrders == null) {
+                            readyOrders = fallbackOrders.value
+                                .filter { it.status == OrderStatus.READY_FOR_PICKUP }
+                        }
+                        publishIfReady()
+                        return@addSnapshotListener
+                    }
+
+                    readyOrders = snapshot.documents
+                        .mapNotNull { it.toOrder() }
+                    publishIfReady()
+                }
+
+            val profileAssignedRegistration = firestore
+                .collection(FirestoreCollections.ORDERS)
+                .whereEqualTo("driverId", driverProfileId.trim())
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) {
+                        if (profileAssignedOrders == null) {
+                            profileAssignedOrders = fallbackOrders.value
+                                .filter { it.driverId.trim() == driverProfileId.trim() }
+                        }
+                        publishIfReady()
+                        return@addSnapshotListener
+                    }
+
+                    profileAssignedOrders = snapshot.documents
+                        .mapNotNull { it.toOrder() }
+                    publishIfReady()
+                }
+
+            val userAssignedRegistration = if (currentUserId != driverProfileId) {
+                firestore
+                    .collection(FirestoreCollections.ORDERS)
+                    .whereEqualTo("driverId", currentUserId.trim())
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null || snapshot == null) {
+                            if (userAssignedOrders == null) {
+                                userAssignedOrders = fallbackOrders.value
+                                    .filter { it.driverId.trim() == currentUserId.trim() }
+                            }
+                            publishIfReady()
+                            return@addSnapshotListener
+                        }
+
+                        userAssignedOrders = snapshot.documents
+                            .mapNotNull { it.toOrder() }
+                        publishIfReady()
+                    }
+            } else {
+                null
+            }
+
+            awaitClose {
+                readyRegistration.remove()
+                profileAssignedRegistration.remove()
+                userAssignedRegistration?.remove()
+            }
+        }.catch {
+            val driverKeys = setOf(currentUserId.trim(), driverProfileId.trim())
+                .filter { key -> key.isNotBlank() }
+                .toSet()
+            emit(
+                fallbackOrders.value
+                    .filter { order -> order.isVisibleToDriver(driverKeys) }
+                    .sortedByDescending { order -> order.createdAt }
             )
         }
     }
@@ -207,43 +361,99 @@ class OrderRepository(
     suspend fun validatePickup(
         orderId: String,
         pickupCode: String,
-        driverId: String
+        driverId: String,
+        currentUserId: String = ""
     ): Result<Unit> {
         return try {
             val document = firestore
                 .collection(FirestoreCollections.ORDERS)
                 .document(orderId)
-            val order = document.get().await().toOrder()
-                ?: return Result.failure(IllegalArgumentException("Commande introuvable."))
             val cleanCode = pickupCode.trim().uppercase()
             val cleanDriverId = driverId.trim()
-
-            if (order.status != OrderStatus.READY_FOR_PICKUP) {
-                return Result.failure(IllegalArgumentException("La commande n'est pas prete."))
-            }
+            val driverKeys = setOf(cleanDriverId, currentUserId.trim())
+                .filter { it.isNotBlank() }
+                .toSet()
 
             if (cleanDriverId.isBlank()) {
                 return Result.failure(IllegalArgumentException("Livreur introuvable."))
             }
 
-            if (order.driverId.isNotBlank() && order.driverId != cleanDriverId) {
-                return Result.failure(IllegalArgumentException("Cette commande est assignee a un autre livreur."))
-            }
+            firestore.runTransaction { transaction ->
+                val order = transaction.get(document).toOrder()
+                    ?: throw IllegalArgumentException("Commande introuvable.")
 
-            if (order.pickupCode.uppercase() != cleanCode) {
-                return Result.failure(IllegalArgumentException("Code de retrait incorrect."))
-            }
+                if (order.status != OrderStatus.READY_FOR_PICKUP) {
+                    throw IllegalArgumentException("La commande n'est pas prete.")
+                }
 
-            document
-                .update(
+                if (order.driverId.isNotBlank() && order.driverId.trim() !in driverKeys) {
+                    throw IllegalArgumentException("Cette commande est assignee a un autre livreur.")
+                }
+
+                if (order.pickupCode.uppercase() != cleanCode) {
+                    throw IllegalArgumentException("Code de retrait incorrect.")
+                }
+
+                transaction.update(
+                    document,
                     mapOf(
-                        "status" to OrderStatus.ON_THE_WAY.name,
+                        "status" to OrderStatus.PICKED_UP.name,
                         "driverId" to cleanDriverId,
                         "pickupCodeValidation" to cleanCode,
                         "pickupCodeValidatedAt" to System.currentTimeMillis()
                     )
                 )
-                .await()
+            }.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateDriverOrderStatus(
+        orderId: String,
+        driverId: String,
+        status: OrderStatus,
+        currentUserId: String = ""
+    ): Result<Unit> {
+        return try {
+            val document = firestore
+                .collection(FirestoreCollections.ORDERS)
+                .document(orderId)
+            val cleanDriverId = driverId.trim()
+            val driverKeys = setOf(cleanDriverId, currentUserId.trim())
+                .filter { it.isNotBlank() }
+                .toSet()
+
+            if (cleanDriverId.isBlank()) {
+                return Result.failure(IllegalArgumentException("Livreur introuvable."))
+            }
+
+            firestore.runTransaction { transaction ->
+                val order = transaction.get(document).toOrder()
+                    ?: throw IllegalArgumentException("Commande introuvable.")
+
+                if (order.driverId.trim() !in driverKeys) {
+                    throw IllegalArgumentException("Cette commande n'est pas assignee a ce livreur.")
+                }
+
+                val transitionIsAllowed =
+                    (order.status == OrderStatus.PICKED_UP && status == OrderStatus.ON_THE_WAY) ||
+                            (order.status == OrderStatus.ON_THE_WAY && status == OrderStatus.DELIVERED)
+
+                if (!transitionIsAllowed) {
+                    throw IllegalArgumentException("Changement de statut non autorise.")
+                }
+
+                transaction.update(
+                    document,
+                    mapOf(
+                        "status" to status.name,
+                        "driverId" to cleanDriverId
+                    )
+                )
+            }.await()
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -255,13 +465,18 @@ class OrderRepository(
         return mapOf(
             "id" to id,
             "userId" to userId,
+            "customerId" to userId,
+            "customerName" to customerName,
+            "customerPhone" to customerPhone,
             "restaurantId" to restaurantId,
             "restaurantName" to restaurantName,
             "items" to items.map { it.toFirestoreMap() },
             "subtotal" to subtotal,
             "deliveryFee" to deliveryFee,
             "totalPrice" to totalPrice,
+            "total" to totalPrice,
             "deliveryAddress" to deliveryAddress,
+            "deliveryNote" to deliveryNote,
             "paymentMethod" to paymentMethod,
             "paymentStatus" to paymentStatus.name,
             "status" to status.name,
@@ -318,16 +533,25 @@ class OrderRepository(
 
     private fun DocumentSnapshot.toOrder(): Order? {
         val snapshotData = data ?: return null
+        val totalPrice = snapshotData.doubleValue("totalPrice")
+            .takeIf { it > 0.0 }
+            ?: snapshotData.doubleValue("total")
         return Order(
             id = id,
-            userId = snapshotData.stringValue("userId"),
+            userId = snapshotData.stringValue("userId")
+                .ifBlank { snapshotData.stringValue("customerId") },
+            customerName = snapshotData.stringValue("customerName"),
+            customerPhone = snapshotData.stringValue("customerPhone"),
             restaurantId = snapshotData.stringValue("restaurantId"),
             restaurantName = snapshotData.stringValue("restaurantName"),
             items = snapshotData.cartItemsValue("items"),
-            subtotal = snapshotData.doubleValue("subtotal"),
+            subtotal = snapshotData.doubleValue("subtotal")
+                .takeIf { it > 0.0 }
+                ?: totalPrice,
             deliveryFee = snapshotData.doubleValue("deliveryFee"),
-            totalPrice = snapshotData.doubleValue("totalPrice"),
+            totalPrice = totalPrice,
             deliveryAddress = snapshotData.stringValue("deliveryAddress"),
+            deliveryNote = snapshotData.stringValue("deliveryNote"),
             paymentMethod = snapshotData.stringValue("paymentMethod"),
             paymentStatus = snapshotData.paymentStatusValue("paymentStatus"),
             status = snapshotData.orderStatusValue("status"),
@@ -369,22 +593,38 @@ class OrderRepository(
                 quantity = itemMap.intValue("quantity"),
                 selectedExtras = itemMap.customizationOptionsValue("selectedExtras"),
                 removedIngredients = itemMap.stringListValue("removedIngredients"),
-                spiceLevel = itemMap.stringValue("spiceLevel"),
+                spiceLevel = itemMap.stringValue("spiceLevel").toSafeSpiceLevel(),
                 specialInstruction = itemMap.stringValue("specialInstruction")
             )
         }
     }
 
     private fun Map<*, *>.orderStatusValue(key: String): OrderStatus {
-        return runCatching {
-            OrderStatus.valueOf(stringValue(key))
-        }.getOrDefault(OrderStatus.PENDING)
+        val rawStatus = stringValue(key)
+            .trim()
+            .uppercase()
+            .replace("-", "_")
+            .replace(" ", "_")
+
+        return when (rawStatus) {
+            "CONFIRMED" -> OrderStatus.ACCEPTED
+            "READY",
+            "READY_FOR_DELIVERY",
+            "READY_FOR_PICK_UP" -> OrderStatus.READY_FOR_PICKUP
+            else -> runCatching {
+                OrderStatus.valueOf(rawStatus)
+            }.getOrDefault(OrderStatus.PENDING)
+        }
     }
 
     private fun Map<*, *>.paymentStatusValue(key: String): PaymentStatus {
-        return runCatching {
-            PaymentStatus.valueOf(stringValue(key))
-        }.getOrDefault(PaymentStatus.PENDING)
+        return when (val rawStatus = stringValue(key)) {
+            "PAID" -> PaymentStatus.PAID_SIMULATED
+            "CASH_ON_DELIVERY" -> PaymentStatus.PENDING_CASH
+            else -> runCatching {
+                PaymentStatus.valueOf(rawStatus)
+            }.getOrDefault(PaymentStatus.PENDING)
+        }
     }
 
     private fun Map<*, *>.stringValue(key: String): String {
@@ -442,5 +682,29 @@ class OrderRepository(
         return takeLast(6)
             .uppercase()
             .padStart(6, '0')
+    }
+
+    private fun String.toSafeSpiceLevel(): String {
+        return when (lowercase()) {
+            "mild", "doux" -> "mild"
+            "medium", "moyen", "normal" -> "medium"
+            "spicy", "piquant", "hot", "very spicy", "very-spicy", "extra spicy", "extra-spicy" -> "spicy"
+            else -> this
+        }
+    }
+
+    private fun Order.isVisibleToDriver(driverKeys: Set<String>): Boolean {
+        val cleanDriverId = driverId.trim()
+        val assignedToDriver = cleanDriverId in driverKeys
+        return when (status) {
+            OrderStatus.READY_FOR_PICKUP -> cleanDriverId.isBlank() || assignedToDriver
+            OrderStatus.PICKED_UP,
+            OrderStatus.ON_THE_WAY,
+            OrderStatus.DELIVERED -> assignedToDriver
+            OrderStatus.PENDING,
+            OrderStatus.ACCEPTED,
+            OrderStatus.PREPARING,
+            OrderStatus.CANCELLED -> false
+        }
     }
 }

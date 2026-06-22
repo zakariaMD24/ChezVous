@@ -25,7 +25,11 @@ class UserRepository(
                         return@addSnapshotListener
                     }
 
-                    trySend(snapshot.toObject(User::class.java)?.copy(id = snapshot.id))
+                    trySend(
+                        snapshot.toObject(User::class.java)
+                            ?.copy(id = snapshot.id)
+                            ?.withSafeRole()
+                    )
                 }
 
             awaitClose { registration.remove() }
@@ -48,6 +52,7 @@ class UserRepository(
                         .mapNotNull { document ->
                             document.toObject(User::class.java)
                                 ?.copy(id = document.id)
+                                ?.withSafeRole()
                         }
                         .sortedWith(
                             compareBy<User> { it.role }
@@ -169,4 +174,41 @@ class UserRepository(
             Result.failure(e)
         }
     }
+
+    suspend fun createWorkerInvitation(
+        fullName: String,
+        email: String,
+        phone: String,
+        role: String,
+        managedRestaurantIds: List<String>,
+        driverId: String
+    ): Result<Unit> {
+        return try {
+            val document = firestore
+                .collection(FirestoreCollections.WORKER_INVITATIONS)
+                .document()
+
+            document.set(
+                mapOf(
+                    "id" to document.id,
+                    "fullName" to fullName,
+                    "email" to email,
+                    "phone" to phone,
+                    "role" to UserRoles.safeRole(role),
+                    "managedRestaurantIds" to managedRestaurantIds,
+                    "driverId" to driverId,
+                    "status" to "PENDING_REGISTRATION",
+                    "createdAt" to System.currentTimeMillis()
+                )
+            ).await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+
+private fun User.withSafeRole(): User {
+    return copy(role = UserRoles.safeRole(role))
 }

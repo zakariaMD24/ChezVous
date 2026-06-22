@@ -13,7 +13,6 @@ object ChezVousRoutes {
     const val ORDERS = "orders"
     const val RESTAURANTS = "restaurants"
     const val PARTNER_DASHBOARD = "partner-dashboard"
-    const val KITCHEN_DASHBOARD = "kitchen-dashboard"
     const val DELIVERY_DASHBOARD = "delivery-dashboard"
     const val RESTAURANT_ID_ARG = "restaurantId"
     const val ORDER_ID_ARG = "orderId"

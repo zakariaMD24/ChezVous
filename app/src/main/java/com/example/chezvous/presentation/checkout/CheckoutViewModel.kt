@@ -7,6 +7,7 @@ import com.example.chezvous.data.model.Order
 import com.example.chezvous.data.model.OrderStatus
 import com.example.chezvous.data.model.PaymentStatus
 import com.example.chezvous.data.model.Restaurant
+import com.example.chezvous.data.model.User
 import com.example.chezvous.data.repository.AuthRepository
 import com.example.chezvous.data.repository.CartRepository
 import com.example.chezvous.data.repository.DEFAULT_DELIVERY_FEE
@@ -25,9 +26,9 @@ enum class CheckoutPaymentMethod(
     val firestoreValue: String
 ) {
     CARD(
-        label = "Carte bancaire",
-        description = "Paiement en ligne simule",
-        firestoreValue = "CARD"
+        label = "Paiement en ligne simule",
+        description = "Carte bancaire de demonstration",
+        firestoreValue = "CARD_SIMULATED"
     ),
     CASH_ON_DELIVERY(
         label = "Paiement a la livraison",
@@ -43,6 +44,9 @@ data class CheckoutUiState(
     val deliveryFee: Double = 0.0,
     val total: Double = 0.0,
     val deliveryAddress: String = "",
+    val deliveryNote: String = "",
+    val customerName: String = "",
+    val customerPhone: String = "",
     val paymentMethod: CheckoutPaymentMethod = CheckoutPaymentMethod.CARD,
     val cardHolder: String = "",
     val cardNumber: String = "",
@@ -114,7 +118,20 @@ class CheckoutViewModel : ViewModel() {
                     val address = user?.address.orEmpty()
                     if (!didPrefillAddress && address.isNotBlank()) {
                         didPrefillAddress = true
-                        _uiState.update { it.copy(deliveryAddress = address) }
+                        _uiState.update {
+                            it.copy(
+                                deliveryAddress = address,
+                                customerName = user.deliveryName(),
+                                customerPhone = user?.phone.orEmpty()
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                customerName = user.deliveryName(),
+                                customerPhone = user?.phone.orEmpty()
+                            )
+                        }
                     }
                 }
             }
@@ -130,6 +147,10 @@ class CheckoutViewModel : ViewModel() {
                 errorMessage = null
             )
         }
+    }
+
+    fun onDeliveryNoteChange(value: String) {
+        _uiState.update { it.copy(deliveryNote = value.take(140), errorMessage = null) }
     }
 
     fun onPaymentMethodSelected(method: CheckoutPaymentMethod) {
@@ -209,11 +230,13 @@ class CheckoutViewModel : ViewModel() {
             delay(900)
 
             val paymentStatus = when (state.paymentMethod) {
-                CheckoutPaymentMethod.CARD -> PaymentStatus.PAID
-                CheckoutPaymentMethod.CASH_ON_DELIVERY -> PaymentStatus.CASH_ON_DELIVERY
+                CheckoutPaymentMethod.CARD -> PaymentStatus.PAID_SIMULATED
+                CheckoutPaymentMethod.CASH_ON_DELIVERY -> PaymentStatus.PENDING_CASH
             }
             val order = Order(
                 userId = userId,
+                customerName = state.customerName.ifBlank { "Customer" },
+                customerPhone = state.customerPhone,
                 restaurantId = restaurant.id,
                 restaurantName = restaurant.name,
                 items = state.items,
@@ -221,6 +244,7 @@ class CheckoutViewModel : ViewModel() {
                 deliveryFee = state.deliveryFee,
                 totalPrice = state.total,
                 deliveryAddress = state.deliveryAddress.trim(),
+                deliveryNote = state.deliveryNote.trim(),
                 paymentMethod = state.paymentMethod.firestoreValue,
                 paymentStatus = paymentStatus,
                 status = OrderStatus.PENDING,
@@ -249,6 +273,10 @@ class CheckoutViewModel : ViewModel() {
                 }
         }
     }
+}
+
+private fun User?.deliveryName(): String {
+    return this?.fullName.orEmpty().ifBlank { "Customer" }
 }
 
 private fun String.onlyDigits(): String {

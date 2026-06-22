@@ -86,6 +86,7 @@ fun CheckoutScreen(
                 CheckoutContent(
                     uiState = uiState,
                     onDeliveryAddressChange = viewModel::onDeliveryAddressChange,
+                    onDeliveryNoteChange = viewModel::onDeliveryNoteChange,
                     onPaymentMethodSelected = viewModel::onPaymentMethodSelected,
                     onCardHolderChange = viewModel::onCardHolderChange,
                     onCardNumberChange = viewModel::onCardNumberChange,
@@ -105,6 +106,7 @@ fun CheckoutScreen(
 private fun CheckoutContent(
     uiState: CheckoutUiState,
     onDeliveryAddressChange: (String) -> Unit,
+    onDeliveryNoteChange: (String) -> Unit,
     onPaymentMethodSelected: (CheckoutPaymentMethod) -> Unit,
     onCardHolderChange: (String) -> Unit,
     onCardNumberChange: (String) -> Unit,
@@ -129,6 +131,17 @@ private fun CheckoutContent(
                 onValueChange = onDeliveryAddressChange,
                 label = "Adresse complete",
                 leadingIcon = Icons.Outlined.LocationOn,
+                singleLine = false,
+                imeAction = ImeAction.Next,
+                enabled = !uiState.isLoading
+            )
+
+            Spacer(modifier = Modifier.height(ChezVousSpacing.xs))
+
+            ChezVousTextField(
+                value = uiState.deliveryNote,
+                onValueChange = onDeliveryNoteChange,
+                label = "Note de livraison (optionnel)",
                 singleLine = false,
                 imeAction = ImeAction.Next,
                 enabled = !uiState.isLoading

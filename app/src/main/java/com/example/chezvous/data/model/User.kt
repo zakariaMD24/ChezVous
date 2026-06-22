@@ -35,10 +35,6 @@ object UserRoles {
         return safeRole(role) == DRIVER
     }
 
-    fun canUseKitchenDashboard(role: String?): Boolean {
-        return safeRole(role) == PARTNER
-    }
-
     fun canOrderAsCustomer(role: String?): Boolean {
         return safeRole(role) == CUSTOMER
     }

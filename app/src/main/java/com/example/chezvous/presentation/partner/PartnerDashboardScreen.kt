@@ -98,6 +98,8 @@ fun PartnerDashboardScreen(
     var showEditor by remember { mutableStateOf(false) }
     var showDriverEditor by remember { mutableStateOf(false) }
     var showUserEditor by remember { mutableStateOf(false) }
+    var showWorkerInvitationEditor by remember { mutableStateOf(false) }
+    var showRestaurantEditor by remember { mutableStateOf(false) }
     var selectedSection by remember { mutableStateOf<PartnerDashboardSection?>(null) }
 
     LaunchedEffect(uiState.message, uiState.errorMessage) {
@@ -114,7 +116,11 @@ fun PartnerDashboardScreen(
     Scaffold(
         topBar = {
             ChezVousTopBar(
-                title = "Espace partenaire",
+                title = if (UserRoles.hasGlobalRestaurantAccess(uiState.role)) {
+                    stringResource(R.string.admin_space)
+                } else {
+                    stringResource(R.string.partner_space)
+                },
                 onBack = if (showBackButton) onBack else null
             )
         }
@@ -142,6 +148,7 @@ fun PartnerDashboardScreen(
                 PartnerDashboardContent(
                     uiState = uiState,
                     onRestaurantSelected = viewModel::selectRestaurant,
+                    onAddRestaurant = { showRestaurantEditor = true },
                     selectedSection = selectedSection,
                     onSectionSelected = { selectedSection = it },
                     onChangeRestaurant = {
@@ -175,6 +182,7 @@ fun PartnerDashboardScreen(
                         editingUser = it
                         showUserEditor = true
                     },
+                    onAddWorker = { showWorkerInvitationEditor = true },
                     onUserSearchQueryChange = viewModel::onUserSearchQueryChange,
                     modifier = Modifier
                         .fillMaxSize()
@@ -243,12 +251,50 @@ fun PartnerDashboardScreen(
             )
         }
     }
+
+    if (showWorkerInvitationEditor) {
+        WorkerInvitationSheet(
+            restaurants = uiState.restaurants,
+            isSaving = uiState.isSaving,
+            onDismiss = { showWorkerInvitationEditor = false },
+            onSave = { fullName, email, phone, role, restaurantIds, vehicleType ->
+                viewModel.createWorkerInvitation(
+                    fullName = fullName,
+                    email = email,
+                    phone = phone,
+                    role = role,
+                    managedRestaurantIds = restaurantIds,
+                    vehicleType = vehicleType
+                )
+                showWorkerInvitationEditor = false
+            }
+        )
+    }
+
+    if (showRestaurantEditor) {
+        RestaurantEditorSheet(
+            isSaving = uiState.isSaving,
+            onDismiss = { showRestaurantEditor = false },
+            onSave = { name, cuisineType, imageUrl, address, deliveryTime, isOpen ->
+                viewModel.createRestaurant(
+                    name = name,
+                    cuisineType = cuisineType,
+                    imageUrl = imageUrl,
+                    address = address,
+                    deliveryTime = deliveryTime,
+                    isOpen = isOpen
+                )
+                showRestaurantEditor = false
+            }
+        )
+    }
 }
 
 @Composable
 private fun PartnerDashboardContent(
     uiState: PartnerDashboardUiState,
     onRestaurantSelected: (String) -> Unit,
+    onAddRestaurant: () -> Unit,
     selectedSection: PartnerDashboardSection?,
     onSectionSelected: (PartnerDashboardSection) -> Unit,
     onChangeRestaurant: () -> Unit,
@@ -268,14 +314,42 @@ private fun PartnerDashboardContent(
     onAddDriver: () -> Unit,
     onDriverAvailabilityChange: (Driver, Boolean) -> Unit,
     onEditUser: (User) -> Unit,
+    onAddWorker: () -> Unit,
     onUserSearchQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val canUseGlobalSections = UserRoles.hasGlobalRestaurantAccess(uiState.role)
     when {
+        canUseGlobalSections && selectedSection == PartnerDashboardSection.DRIVERS -> {
+            DriversManagementContent(
+                uiState = uiState,
+                onBack = onBackToSections,
+                onChangeRestaurant = onChangeRestaurant,
+                onEditDriver = onEditDriver,
+                onAddDriver = onAddDriver,
+                onAvailabilityChange = onDriverAvailabilityChange,
+                modifier = modifier
+            )
+        }
+
+        canUseGlobalSections && selectedSection == PartnerDashboardSection.USERS -> {
+            UsersManagementContent(
+                uiState = uiState,
+                onBack = onBackToSections,
+                onChangeRestaurant = onChangeRestaurant,
+                onEditUser = onEditUser,
+                onAddWorker = onAddWorker,
+                onUserSearchQueryChange = onUserSearchQueryChange,
+                modifier = modifier
+            )
+        }
+
         uiState.selectedRestaurant == null -> {
             RestaurantSelectionContent(
                 uiState = uiState,
                 onRestaurantSelected = onRestaurantSelected,
+                onSectionSelected = onSectionSelected,
+                onAddRestaurant = onAddRestaurant,
                 modifier = modifier
             )
         }
@@ -339,6 +413,7 @@ private fun PartnerDashboardContent(
                 onBack = onBackToSections,
                 onChangeRestaurant = onChangeRestaurant,
                 onEditUser = onEditUser,
+                onAddWorker = onAddWorker,
                 onUserSearchQueryChange = onUserSearchQueryChange,
                 modifier = modifier
             )
@@ -350,8 +425,12 @@ private fun PartnerDashboardContent(
 private fun RestaurantSelectionContent(
     uiState: PartnerDashboardUiState,
     onRestaurantSelected: (String) -> Unit,
+    onSectionSelected: (PartnerDashboardSection) -> Unit,
+    onAddRestaurant: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isAdmin = UserRoles.hasGlobalRestaurantAccess(uiState.role)
+
     LazyColumn(
         modifier = modifier.chezVousScreenPadding(),
         verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.md)
@@ -359,12 +438,20 @@ private fun RestaurantSelectionContent(
         item {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.partner_choose_restaurant),
+                text = if (isAdmin) {
+                    stringResource(R.string.admin_space)
+                } else {
+                    stringResource(R.string.partner_choose_restaurant)
+                },
                 style = MaterialTheme.typography.headlineSmall
             )
 
             Text(
-                text = stringResource(R.string.partner_choose_restaurant_hint),
+                text = if (isAdmin) {
+                    stringResource(R.string.admin_dashboard_hint)
+                } else {
+                    stringResource(R.string.partner_choose_restaurant_hint)
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -375,6 +462,49 @@ private fun RestaurantSelectionContent(
                 message = uiState.message,
                 errorMessage = uiState.errorMessage
             )
+        }
+
+        if (isAdmin) {
+            item {
+                ManagementActionCard(
+                    title = stringResource(R.string.partner_users_roles),
+                    subtitle = stringResource(
+                        R.string.partner_users_roles_summary,
+                        uiState.visibleUsers.size
+                    ),
+                    icon = Icons.Outlined.Person,
+                    onClick = { onSectionSelected(PartnerDashboardSection.USERS) }
+                )
+            }
+
+            item {
+                ManagementActionCard(
+                    title = stringResource(R.string.partner_drivers),
+                    subtitle = stringResource(
+                        R.string.partner_drivers_summary,
+                        uiState.drivers.count { it.isAvailable },
+                        uiState.drivers.size
+                    ),
+                    icon = Icons.Outlined.DeliveryDining,
+                    onClick = { onSectionSelected(PartnerDashboardSection.DRIVERS) }
+                )
+            }
+
+            item {
+                SectionTitle(text = stringResource(R.string.admin_restaurants_to_manage))
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = onAddRestaurant,
+                    enabled = !uiState.isSaving,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(ChezVousSpacing.xs))
+                    Text(stringResource(R.string.admin_add_restaurant))
+                }
+            }
         }
 
         if (uiState.restaurants.isEmpty()) {
@@ -474,7 +604,7 @@ private fun PartnerSectionPickerContent(
                     title = stringResource(R.string.partner_users_roles),
                     subtitle = stringResource(
                         R.string.partner_users_roles_summary,
-                        uiState.users.count { it.role != UserRoles.CUSTOMER }
+                        uiState.visibleUsers.size
                     ),
                     icon = Icons.Outlined.Person,
                     onClick = { onSectionSelected(PartnerDashboardSection.USERS) }
@@ -965,10 +1095,12 @@ private fun UsersManagementContent(
     onBack: () -> Unit,
     onChangeRestaurant: () -> Unit,
     onEditUser: (User) -> Unit,
+    onAddWorker: () -> Unit,
     onUserSearchQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isSearchingUser by remember { mutableStateOf(false) }
+    val visibleUsers = uiState.visibleUsers
 
     LazyColumn(
         modifier = modifier.chezVousScreenPadding(),
@@ -980,7 +1112,7 @@ private fun UsersManagementContent(
                 subtitle = if (isSearchingUser) {
                     stringResource(R.string.partner_user_search_mode)
                 } else {
-                    stringResource(R.string.partner_users_roles_summary, uiState.users.size)
+                    stringResource(R.string.partner_users_roles_summary, visibleUsers.size)
                 },
                 onBack = onBack,
                 onChangeRestaurant = onChangeRestaurant
@@ -1015,6 +1147,16 @@ private fun UsersManagementContent(
                         }
                     )
                 }
+
+                OutlinedButton(
+                    onClick = onAddWorker,
+                    enabled = !uiState.isSaving,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(ChezVousSpacing.xs))
+                    Text(stringResource(R.string.admin_add_worker))
+                }
             }
         }
 
@@ -1028,7 +1170,7 @@ private fun UsersManagementContent(
             }
         }
 
-        if (uiState.users.isEmpty()) {
+        if (visibleUsers.isEmpty()) {
             item {
                 EmptyPartnerSection(
                     text = if (isSearchingUser) {
@@ -1040,7 +1182,7 @@ private fun UsersManagementContent(
             }
         }
 
-        items(uiState.users) { user ->
+        items(visibleUsers) { user ->
             UserAccessCard(
                 user = user,
                 restaurants = uiState.restaurants,
@@ -1889,6 +2031,245 @@ private fun UserAccessEditorSheet(
                             selectedRestaurantIds.toList(),
                             selectedDriverId
                         )
+                    }
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WorkerInvitationSheet(
+    restaurants: List<Restaurant>,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (
+        fullName: String,
+        email: String,
+        phone: String,
+        role: String,
+        restaurantIds: List<String>,
+        vehicleType: String
+    ) -> Unit
+) {
+    var fullName by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var selectedRole by remember { mutableStateOf(UserRoles.PARTNER) }
+    var selectedRestaurantIds by remember { mutableStateOf(emptySet<String>()) }
+    var vehicleType by remember { mutableStateOf("") }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .chezVousSheetPadding()
+                .padding(bottom = ChezVousSpacing.xl),
+            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
+        ) {
+            Text(
+                text = stringResource(R.string.admin_add_worker),
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            ChezVousTextField(
+                value = fullName,
+                onValueChange = { fullName = it },
+                label = stringResource(R.string.profile_full_name),
+                enabled = !isSaving
+            )
+
+            ChezVousTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = stringResource(R.string.profile_email),
+                keyboardType = KeyboardType.Email,
+                enabled = !isSaving
+            )
+
+            ChezVousTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = stringResource(R.string.profile_phone),
+                keyboardType = KeyboardType.Phone,
+                enabled = !isSaving
+            )
+
+            SectionTitle(text = stringResource(R.string.partner_active_roles))
+            Row(horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)) {
+                listOf(UserRoles.PARTNER, UserRoles.DRIVER, UserRoles.ADMIN).forEach { role ->
+                    CategoryChip(
+                        text = role.roleDisplayLabel(),
+                        selected = selectedRole == role,
+                        onClick = {
+                            selectedRole = role
+                            if (role != UserRoles.PARTNER) selectedRestaurantIds = emptySet()
+                        }
+                    )
+                }
+            }
+
+            if (selectedRole == UserRoles.PARTNER) {
+                SectionTitle(text = stringResource(R.string.admin_assign_restaurants))
+                restaurants.forEach { restaurant ->
+                    CategoryChip(
+                        text = restaurant.name,
+                        selected = restaurant.id in selectedRestaurantIds,
+                        onClick = {
+                            selectedRestaurantIds = if (restaurant.id in selectedRestaurantIds) {
+                                selectedRestaurantIds - restaurant.id
+                            } else {
+                                selectedRestaurantIds + restaurant.id
+                            }
+                        }
+                    )
+                }
+            }
+
+            if (selectedRole == UserRoles.DRIVER) {
+                ChezVousTextField(
+                    value = vehicleType,
+                    onValueChange = { vehicleType = it },
+                    label = stringResource(R.string.partner_driver_vehicle),
+                    enabled = !isSaving
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.admin_worker_invitation_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
+
+                TextButton(
+                    enabled = !isSaving,
+                    onClick = {
+                        onSave(
+                            fullName,
+                            email,
+                            phone,
+                            selectedRole,
+                            selectedRestaurantIds.toList(),
+                            vehicleType
+                        )
+                    }
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RestaurantEditorSheet(
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (
+        name: String,
+        cuisineType: String,
+        imageUrl: String,
+        address: String,
+        deliveryTime: String,
+        isOpen: Boolean
+    ) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var cuisineType by remember { mutableStateOf("") }
+    var imageUrl by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var deliveryTime by remember { mutableStateOf("") }
+    var isOpen by remember { mutableStateOf(true) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .chezVousSheetPadding()
+                .padding(bottom = ChezVousSpacing.xl),
+            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
+        ) {
+            Text(
+                text = stringResource(R.string.admin_add_restaurant),
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            ChezVousTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(R.string.restaurant_name),
+                enabled = !isSaving
+            )
+
+            ChezVousTextField(
+                value = cuisineType,
+                onValueChange = { cuisineType = it },
+                label = stringResource(R.string.category),
+                enabled = !isSaving
+            )
+
+            ChezVousTextField(
+                value = imageUrl,
+                onValueChange = { imageUrl = it },
+                label = stringResource(R.string.image_url),
+                enabled = !isSaving
+            )
+
+            ChezVousTextField(
+                value = address,
+                onValueChange = { address = it },
+                label = stringResource(R.string.profile_address),
+                enabled = !isSaving
+            )
+
+            ChezVousTextField(
+                value = deliveryTime,
+                onValueChange = { deliveryTime = it },
+                label = stringResource(R.string.delivery_time),
+                enabled = !isSaving
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.restaurant_open_setting),
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = isOpen,
+                    onCheckedChange = { isOpen = it },
+                    enabled = !isSaving
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
+
+                TextButton(
+                    enabled = !isSaving,
+                    onClick = {
+                        onSave(name, cuisineType, imageUrl, address, deliveryTime, isOpen)
                     }
                 ) {
                     Text(stringResource(R.string.save))

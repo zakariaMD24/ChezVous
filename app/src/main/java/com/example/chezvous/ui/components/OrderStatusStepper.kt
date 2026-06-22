@@ -18,7 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.example.chezvous.R
 import com.example.chezvous.data.model.OrderStatus
 import com.example.chezvous.ui.theme.ChezVousSize
 import com.example.chezvous.ui.theme.ChezVousSpacing
@@ -37,14 +39,14 @@ fun OrderStatusStepper(
             verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
         ) {
             Text(
-                text = "Suivi de commande",
+                text = stringResource(R.string.order_tracking_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
 
             if (status == OrderStatus.CANCELLED) {
                 Text(
-                    text = "Commande annulee",
+                    text = stringResource(R.string.order_cancelled_title),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -149,15 +151,17 @@ fun OrderStatusChip(
     }
 }
 
+@Composable
 fun OrderStatus.customerLabel(): String {
     return when (this) {
-        OrderStatus.PENDING -> "En attente"
-        OrderStatus.CONFIRMED -> "Confirmee"
-        OrderStatus.PREPARING -> "Preparation"
-        OrderStatus.READY_FOR_PICKUP -> "Pret au retrait"
-        OrderStatus.ON_THE_WAY -> "En route"
-        OrderStatus.DELIVERED -> "Livree"
-        OrderStatus.CANCELLED -> "Annulee"
+        OrderStatus.PENDING -> stringResource(R.string.status_pending)
+        OrderStatus.ACCEPTED -> stringResource(R.string.status_accepted)
+        OrderStatus.PREPARING -> stringResource(R.string.status_preparing)
+        OrderStatus.READY_FOR_PICKUP -> stringResource(R.string.status_ready_for_pickup)
+        OrderStatus.PICKED_UP -> stringResource(R.string.status_picked_up)
+        OrderStatus.ON_THE_WAY -> stringResource(R.string.status_on_the_way)
+        OrderStatus.DELIVERED -> stringResource(R.string.status_delivered)
+        OrderStatus.CANCELLED -> stringResource(R.string.status_cancelled)
     }
 }
 
@@ -167,37 +171,43 @@ private data class OrderStatusStep(
     val description: String
 )
 
+@Composable
 private fun orderStatusSteps(): List<OrderStatusStep> {
     return listOf(
         OrderStatusStep(
             status = OrderStatus.PENDING,
-            title = "Commande recue",
-            description = "Le restaurant doit confirmer la commande."
+            title = stringResource(R.string.order_step_pending_title),
+            description = stringResource(R.string.order_step_pending_description)
         ),
         OrderStatusStep(
-            status = OrderStatus.CONFIRMED,
-            title = "Commande confirmee",
-            description = "Votre commande est acceptee."
+            status = OrderStatus.ACCEPTED,
+            title = stringResource(R.string.order_step_accepted_title),
+            description = stringResource(R.string.order_step_accepted_description)
         ),
         OrderStatusStep(
             status = OrderStatus.PREPARING,
-            title = "Preparation",
-            description = "Le restaurant prepare vos plats."
+            title = stringResource(R.string.order_step_preparing_title),
+            description = stringResource(R.string.order_step_preparing_description)
         ),
         OrderStatusStep(
             status = OrderStatus.READY_FOR_PICKUP,
-            title = "Pret au retrait",
-            description = "La cuisine a termine et attend le livreur."
+            title = stringResource(R.string.order_step_ready_title),
+            description = stringResource(R.string.order_step_ready_description)
+        ),
+        OrderStatusStep(
+            status = OrderStatus.PICKED_UP,
+            title = stringResource(R.string.order_step_picked_up_title),
+            description = stringResource(R.string.order_step_picked_up_description)
         ),
         OrderStatusStep(
             status = OrderStatus.ON_THE_WAY,
-            title = "Livreur en route",
-            description = "La livraison est en cours."
+            title = stringResource(R.string.order_step_on_the_way_title),
+            description = stringResource(R.string.order_step_on_the_way_description)
         ),
         OrderStatusStep(
             status = OrderStatus.DELIVERED,
-            title = "Livree",
-            description = "Bon appetit."
+            title = stringResource(R.string.order_step_delivered_title),
+            description = stringResource(R.string.order_step_delivered_description)
         )
     )
 }

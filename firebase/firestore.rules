@@ -19,9 +19,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function safeRole(role) {
+      return role in ["CHEF", "RESTAURANT_ADMIN"] ? "PARTNER" :
+        (role in ["CUSTOMER", "PARTNER", "DRIVER", "ADMIN"] ? role : "CUSTOMER");
+    }
+
     function hasRole(role) {
       return hasUserProfile()
-        && currentUserData().role == role;
+        && safeRole(currentUserData().role) == role;
     }
 
     function assignedRestaurantIds() {
@@ -33,13 +38,9 @@ service cloud.firestore {
     function managesRestaurant(restaurantId) {
       return hasRole("ADMIN")
         || (
-          (hasRole("PARTNER") || hasRole("RESTAURANT_ADMIN"))
+          hasRole("PARTNER")
           && restaurantId in assignedRestaurantIds()
         );
-    }
-
-    function worksInKitchen(restaurantId) {
-      return hasRole("CHEF") && restaurantId in assignedRestaurantIds();
     }
 
     function ownerCanCreateProfile(userId) {
@@ -58,8 +59,6 @@ service cloud.firestore {
       return role in [
         "CUSTOMER",
         "PARTNER",
-        "RESTAURANT_ADMIN",
-        "CHEF",
         "DRIVER",
         "ADMIN"
       ];
@@ -144,7 +143,31 @@ service cloud.firestore {
     function restaurantCanUpdateSettings(restaurantId) {
       return managesRestaurant(restaurantId)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(["name", "cuisineType", "deliveryTime", "imageUrl", "isOpen"]);
+          .hasOnly(["name", "cuisineType", "deliveryTime", "imageUrl", "address", "isOpen"]);
+    }
+
+    function customerCanUpdateRestaurantRating() {
+      return hasRole("CUSTOMER")
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["rating", "ratingCount"])
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 0
+        && request.resource.data.rating <= 5
+        && request.resource.data.ratingCount is int
+        && request.resource.data.ratingCount >= 1;
+    }
+
+    function validRestaurantReview(data) {
+      return hasRole("CUSTOMER")
+        && data.orderId is string
+        && data.orderId != ""
+        && data.restaurantId is string
+        && data.restaurantId != ""
+        && data.userId == request.auth.uid
+        && data.rating is int
+        && data.rating >= 1
+        && data.rating <= 5
+        && data.comment is string;
     }
 
     function validMenuItemData(data) {
@@ -163,6 +186,10 @@ service cloud.firestore {
     function customerCanCreateOrder() {
       return hasRole("CUSTOMER")
         && request.resource.data.userId == request.auth.uid
+        && (
+          !request.resource.data.keys().hasAny(["customerId"])
+          || request.resource.data.customerId == request.auth.uid
+        )
         && request.resource.data.status == "PENDING"
         && request.resource.data.restaurantId is string
         && request.resource.data.restaurantId != ""
@@ -174,6 +201,21 @@ service cloud.firestore {
         && request.resource.data.pickupCode != "";
     }
 
+    function orderBelongsToCurrentUser(data) {
+      return isSignedIn()
+        && (
+          (
+            data.keys().hasAny(["userId"])
+            && data.userId == request.auth.uid
+          )
+          || (
+            (!data.keys().hasAny(["userId"]) || data.userId == "")
+            && data.keys().hasAny(["customerId"])
+            && data.customerId == request.auth.uid
+          )
+        );
+    }
+
     function onlyStatusChanged() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"]);
     }
@@ -183,7 +225,41 @@ service cloud.firestore {
     }
 
     function isLinkedDriver(driverId) {
-      return hasRole("DRIVER") && linkedDriverId() == driverId;
+      return hasRole("DRIVER")
+        && (
+          linkedDriverId() == driverId
+          || (
+            linkedDriverId() == ""
+            && driverId == request.auth.uid
+          )
+        );
+    }
+
+    function isReadyForPickupStatus(status) {
+      return status in [
+        "READY_FOR_PICKUP",
+        "Ready for pickup",
+        "ready_for_pickup",
+        "READY_FOR_PICK_UP",
+        "READY_FOR_DELIVERY",
+        "READY"
+      ];
+    }
+
+    function driverIdentityMatches(driverId) {
+      return hasRole("DRIVER")
+        && (
+          driverId == linkedDriverId()
+          || driverId == request.auth.uid
+        );
+    }
+
+    function requestedDriverIdIsCurrentDriver() {
+      return request.resource.data.driverId == linkedDriverId()
+        || (
+          linkedDriverId() == ""
+          && request.resource.data.driverId == request.auth.uid
+        );
     }
 
     function driverCanUpdateAvailability(driverId) {
@@ -194,15 +270,15 @@ service cloud.firestore {
     function driverCanReadOrder() {
       return hasRole("DRIVER")
         && (
-          resource.data.status == "READY_FOR_PICKUP"
-          || resource.data.driverId == linkedDriverId()
+          isReadyForPickupStatus(resource.data.status)
+          || driverIdentityMatches(resource.data.driverId)
         );
     }
 
     function orderDriverIsOpenOrMine() {
       return !resource.data.keys().hasAny(["driverId"])
         || resource.data.driverId == ""
-        || resource.data.driverId == linkedDriverId();
+        || driverIdentityMatches(resource.data.driverId);
     }
 
     function driverCanUpdateOrder() {
@@ -211,43 +287,48 @@ service cloud.firestore {
           (
             request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(["status", "driverId", "pickupCodeValidation", "pickupCodeValidatedAt"])
-            && request.resource.data.status == "ON_THE_WAY"
-            && resource.data.status == "READY_FOR_PICKUP"
+            && request.resource.data.status == "PICKED_UP"
+            && isReadyForPickupStatus(resource.data.status)
             && orderDriverIsOpenOrMine()
-            && request.resource.data.driverId == linkedDriverId()
+            && requestedDriverIdIsCurrentDriver()
             && request.resource.data.pickupCode == resource.data.pickupCode
             && request.resource.data.pickupCodeValidation == resource.data.pickupCode
             && request.resource.data.pickupCodeValidatedAt is number
           )
           || (
-            resource.data.driverId == linkedDriverId()
-            && onlyStatusChanged()
+            driverIdentityMatches(resource.data.driverId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "driverId"])
+            && requestedDriverIdIsCurrentDriver()
+            && request.resource.data.status == "ON_THE_WAY"
+            && resource.data.status == "PICKED_UP"
+          )
+          || (
+            driverIdentityMatches(resource.data.driverId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "driverId"])
+            && requestedDriverIdIsCurrentDriver()
             && request.resource.data.status == "DELIVERED"
             && resource.data.status == "ON_THE_WAY"
           )
         );
     }
 
-    function kitchenCanUpdateOrder() {
-      return worksInKitchen(resource.data.restaurantId)
+    function managerCanUpdatePreparationOrder() {
+      return managesRestaurant(resource.data.restaurantId)
         && onlyStatusChanged()
         && (
           (
+            request.resource.data.status == "ACCEPTED"
+            && resource.data.status == "PENDING"
+          )
+          || (
             request.resource.data.status == "PREPARING"
-            && resource.data.status == "CONFIRMED"
+            && resource.data.status == "ACCEPTED"
           )
           || (
             request.resource.data.status == "READY_FOR_PICKUP"
             && resource.data.status == "PREPARING"
           )
         );
-    }
-
-    function managerCanConfirmOrder() {
-      return managesRestaurant(resource.data.restaurantId)
-        && onlyStatusChanged()
-        && request.resource.data.status == "CONFIRMED"
-        && resource.data.status == "PENDING";
     }
 
     match /users/{userId} {
@@ -260,7 +341,13 @@ service cloud.firestore {
     match /restaurants/{restaurantId} {
       allow read: if true;
       allow create, delete: if hasRole("ADMIN");
-      allow update: if restaurantCanUpdateSettings(restaurantId);
+      allow update: if restaurantCanUpdateSettings(restaurantId) || customerCanUpdateRestaurantRating();
+    }
+
+    match /restaurantReviews/{reviewId} {
+      allow read: if true;
+      allow create: if validRestaurantReview(request.resource.data);
+      allow update, delete: if false;
     }
 
     match /menuItems/{menuItemId} {
@@ -280,25 +367,27 @@ service cloud.firestore {
       allow update: if hasRole("ADMIN") || driverCanUpdateAvailability(driverId);
     }
 
+    match /workerInvitations/{invitationId} {
+      allow read, create, update, delete: if hasRole("ADMIN");
+    }
+
     match /orders/{orderId} {
       allow create: if customerCanCreateOrder();
 
       allow read: if isSignedIn()
-        && (resource.data.userId == request.auth.uid
+        && (orderBelongsToCurrentUser(resource.data)
           || managesRestaurant(resource.data.restaurantId)
-          || worksInKitchen(resource.data.restaurantId)
           || driverCanReadOrder());
 
       allow update: if isSignedIn()
         && (
           (
-            resource.data.userId == request.auth.uid
+            orderBelongsToCurrentUser(resource.data)
             && onlyStatusChanged()
             && request.resource.data.status == "CANCELLED"
-            && resource.data.status in ["PENDING", "CONFIRMED"]
+            && resource.data.status in ["PENDING", "ACCEPTED"]
           )
-          || managerCanConfirmOrder()
-          || kitchenCanUpdateOrder()
+          || managerCanUpdatePreparationOrder()
           || driverCanUpdateOrder()
         );
 

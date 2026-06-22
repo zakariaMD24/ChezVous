@@ -18,8 +18,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeliveryDining
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,12 +78,16 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
+    var showThemeSheet by remember { mutableStateOf(false) }
+    var showNotificationsSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             HomeTopBar(
                 showPartnerDashboard = uiState.showPartnerDashboard,
-                onPartnerClick = onPartnerClick
+                onPartnerClick = onPartnerClick,
+                onThemeClick = { showThemeSheet = true },
+                onNotificationsClick = { showNotificationsSheet = true }
             )
         }
     ) { paddingValues ->
@@ -196,6 +202,22 @@ fun HomeScreen(
                 viewModel.onSortSelected(it)
                 showSortSheet = false
             }
+        )
+    }
+
+    if (showThemeSheet) {
+        HomeInfoSheet(
+            title = stringResource(R.string.theme),
+            message = stringResource(R.string.theme_follows_system),
+            onDismiss = { showThemeSheet = false }
+        )
+    }
+
+    if (showNotificationsSheet) {
+        HomeInfoSheet(
+            title = stringResource(R.string.notifications),
+            message = stringResource(R.string.no_notifications_yet),
+            onDismiss = { showNotificationsSheet = false }
         )
     }
 }
@@ -394,6 +416,35 @@ fun HomeSortSheet(
                     onClick = { onSortSelected(option) }
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeInfoSheet(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .chezVousSheetPadding()
+                .padding(bottom = ChezVousSpacing.xl),
+            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -605,7 +656,9 @@ private fun HomeHeroChip(text: String) {
 @Composable
 private fun HomeTopBar(
     showPartnerDashboard: Boolean,
-    onPartnerClick: () -> Unit
+    onPartnerClick: () -> Unit,
+    onThemeClick: () -> Unit,
+    onNotificationsClick: () -> Unit
 ) {
     TopAppBar(
         title = {
@@ -634,6 +687,20 @@ private fun HomeTopBar(
             }
         },
         actions = {
+            IconButton(onClick = onThemeClick) {
+                Icon(
+                    Icons.Outlined.DarkMode,
+                    contentDescription = stringResource(R.string.theme_toggle_content_description)
+                )
+            }
+
+            IconButton(onClick = onNotificationsClick) {
+                Icon(
+                    Icons.Outlined.NotificationsNone,
+                    contentDescription = stringResource(R.string.notifications_content_description)
+                )
+            }
+
             if (showPartnerDashboard) {
                 IconButton(onClick = onPartnerClick) {
                     Icon(

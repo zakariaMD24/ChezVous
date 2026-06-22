@@ -3,6 +3,7 @@ package com.example.chezvous.data.repository
 import com.example.chezvous.data.local.FakeFoodData
 import com.example.chezvous.data.model.FoodItem
 import com.example.chezvous.data.model.Restaurant
+import com.example.chezvous.data.model.RestaurantReview
 import com.example.chezvous.data.remote.FirestoreCollections
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -52,8 +53,78 @@ class RestaurantRepository(
             firestore
                 .collection(FirestoreCollections.RESTAURANTS)
                 .document(restaurant.id)
-                .set(restaurant, SetOptions.merge())
+                .set(
+                    mapOf(
+                        "name" to restaurant.name,
+                        "cuisineType" to restaurant.cuisineType,
+                        "deliveryTime" to restaurant.deliveryTime,
+                        "imageUrl" to restaurant.imageUrl,
+                        "address" to restaurant.address,
+                        "isOpen" to restaurant.isOpen
+                    ),
+                    SetOptions.merge()
+                )
                 .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createRestaurant(restaurant: Restaurant): Result<String> {
+        return try {
+            val document = firestore.collection(FirestoreCollections.RESTAURANTS).document()
+            val restaurantWithId = restaurant.copy(id = document.id, rating = 0.0, ratingCount = 0)
+            document.set(restaurantWithId, SetOptions.merge()).await()
+            Result.success(document.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitRestaurantReview(review: RestaurantReview): Result<Unit> {
+        return try {
+            val cleanRating = review.rating.coerceIn(1, 5)
+            val reviewId = "${review.orderId}_${review.userId}"
+            val reviewDocument = firestore
+                .collection(FirestoreCollections.RESTAURANT_REVIEWS)
+                .document(reviewId)
+            val restaurantDocument = firestore
+                .collection(FirestoreCollections.RESTAURANTS)
+                .document(review.restaurantId)
+
+            firestore.runTransaction { transaction ->
+                if (transaction.get(reviewDocument).exists()) {
+                    throw IllegalArgumentException("Vous avez deja note cette commande.")
+                }
+
+                val restaurantSnapshot = transaction.get(restaurantDocument)
+                val currentCount = (restaurantSnapshot.get("ratingCount") as? Number)?.toInt() ?: 0
+                val currentAverage = if (currentCount > 0) {
+                    (restaurantSnapshot.get("rating") as? Number)?.toDouble() ?: 0.0
+                } else {
+                    0.0
+                }
+                val newCount = currentCount + 1
+                val newAverage = ((currentAverage * currentCount) + cleanRating) / newCount
+
+                transaction.set(
+                    reviewDocument,
+                    review.copy(
+                        id = reviewId,
+                        rating = cleanRating,
+                        comment = review.comment.trim()
+                    )
+                )
+                transaction.update(
+                    restaurantDocument,
+                    mapOf(
+                        "rating" to newAverage,
+                        "ratingCount" to newCount
+                    )
+                )
+            }.await()
 
             Result.success(Unit)
         } catch (e: Exception) {

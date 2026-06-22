@@ -23,11 +23,10 @@ import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.RemoveCircleOutline
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,7 +50,6 @@ import com.example.chezvous.R
 import com.example.chezvous.data.model.CustomizationOption
 import com.example.chezvous.data.model.FoodItem
 import com.example.chezvous.ui.theme.ChezVousSpacing
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +69,9 @@ fun FoodCustomizationSheet(
 
     var selectedExtraIds by remember(foodItem.id) { mutableStateOf(emptySet<String>()) }
     var removedIngredientIds by remember(foodItem.id) { mutableStateOf(emptySet<String>()) }
-    var spiceIndex by remember(foodItem.id, spiceOptions.size) { mutableStateOf(0f) }
+    var selectedSpiceKey by remember(foodItem.id, spiceOptions.size) {
+        mutableStateOf(spiceOptions.firstOrNull()?.optionKey.orEmpty())
+    }
     var instruction by remember(foodItem.id) { mutableStateOf("") }
 
     val selectedExtras = extras.filter { it.optionKey in selectedExtraIds }
@@ -79,10 +79,11 @@ fun FoodCustomizationSheet(
         .filter { it.optionKey in removedIngredientIds }
         .map { it.name }
 
-    val safeSpiceIndex = spiceIndex.roundToInt()
-        .coerceIn(0, spiceOptions.lastIndex.coerceAtLeast(0))
-
-    val selectedSpice = spiceOptions.getOrNull(safeSpiceIndex)?.name.orEmpty()
+    val selectedSpiceName = spiceOptions
+        .firstOrNull { it.optionKey == selectedSpiceKey }
+        ?.name
+        .orEmpty()
+    val optionalText = stringResource(R.string.optional)
 
     val extrasTotal = selectedExtras.sumOf { it.price }
     val finalUnitPrice = foodItem.price + extrasTotal
@@ -106,7 +107,7 @@ fun FoodCustomizationSheet(
             if (extras.isNotEmpty()) {
                 CustomizationSectionHeader(
                     title = stringResource(R.string.extras),
-                    subtitle = "Optionnel"
+                    subtitle = optionalText
                 )
 
                 LazyRow(
@@ -129,7 +130,7 @@ fun FoodCustomizationSheet(
             if (removableIngredients.isNotEmpty()) {
                 CustomizationSectionHeader(
                     title = stringResource(R.string.remove_ingredients),
-                    subtitle = "Optionnel"
+                    subtitle = optionalText
                 )
 
                 LazyRow(
@@ -149,7 +150,7 @@ fun FoodCustomizationSheet(
                 }
 
                 Text(
-                    text = "Sélectionnez les ingrédients à enlever.",
+                    text = stringResource(R.string.select_ingredients_to_remove),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -158,15 +159,19 @@ fun FoodCustomizationSheet(
             if (spiceOptions.isNotEmpty()) {
                 CustomizationSectionHeader(
                     title = stringResource(R.string.spice_level),
-                    subtitle = selectedSpice.ifBlank { "Optionnel" }
+                    subtitle = selectedSpiceName.ifBlank { optionalText }
                 )
 
-                SpiceLevelSlider(
+                Text(
+                    text = stringResource(R.string.choose_spice_level),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                SpiceLevelChips(
                     options = spiceOptions,
-                    selectedIndex = safeSpiceIndex,
-                    onSelectedIndexChange = { index ->
-                        spiceIndex = index.toFloat()
-                    }
+                    selectedKey = selectedSpiceKey,
+                    onSelectedKeyChange = { selectedSpiceKey = it }
                 )
             }
 
@@ -199,7 +204,7 @@ fun FoodCustomizationSheet(
                     onConfirm(
                         selectedExtras,
                         removedIngredientNames,
-                        selectedSpice,
+                        selectedSpiceKey.toSafeSpiceKey(),
                         instruction.trim()
                     )
                 }
@@ -469,200 +474,45 @@ private fun PlaceholderImage(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SpiceLevelSlider(
+private fun SpiceLevelChips(
     options: List<CustomizationOption>,
-    selectedIndex: Int,
-    onSelectedIndexChange: (Int) -> Unit
+    selectedKey: String,
+    onSelectedKeyChange: (String) -> Unit
 ) {
     if (options.isEmpty()) return
 
-    val safeOptions = options
-    val lastIndex = safeOptions.lastIndex.coerceAtLeast(0)
-    val safeSelectedIndex = selectedIndex.coerceIn(0, lastIndex)
-    val selectedOption = safeOptions[safeSelectedIndex]
-    val tone = standardSpiceTone(safeSelectedIndex, lastIndex)
-    val description = selectedOption.description.ifBlank {
-        defaultSpiceDescription(safeSelectedIndex, lastIndex)
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = tone.container,
-        border = BorderStroke(1.dp, tone.color)
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.sm)
     ) {
-        Column(
-            modifier = Modifier.padding(ChezVousSpacing.md),
-            verticalArrangement = Arrangement.spacedBy(ChezVousSpacing.xs)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    modifier = Modifier.size(54.dp),
-                    shape = MaterialTheme.shapes.large,
-                    color = Color.White.copy(alpha = 0.72f)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+        items(options) { option ->
+            val key = option.optionKey
+
+            FilterChip(
+                selected = selectedKey == key,
+                onClick = { onSelectedKeyChange(key) },
+                label = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(ChezVousSpacing.xxs),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = tone.icon,
-                            style = MaterialTheme.typography.headlineMedium
-                        )
+                        SpiceDots(level = key.spiceDotCount())
+                        Text(option.name)
                     }
-                }
-
-                Spacer(modifier = Modifier.width(ChezVousSpacing.md))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = selectedOption.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = tone.color,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Slider(
-                value = safeSelectedIndex.toFloat(),
-                onValueChange = { value ->
-                    onSelectedIndexChange(value.roundToInt().coerceIn(0, lastIndex))
                 },
-                valueRange = 0f..lastIndex.coerceAtLeast(1).toFloat(),
-                steps = (safeOptions.size - 2).coerceAtLeast(0),
-                colors = SliderDefaults.colors(
-                    thumbColor = tone.color,
-                    activeTrackColor = tone.color,
-                    inactiveTrackColor = tone.color.copy(alpha = 0.25f)
-                )
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                safeOptions.forEachIndexed { index, option ->
-                    val itemTone = standardSpiceTone(index, lastIndex)
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = itemTone.icon,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-
-                        Text(
-                            text = option.name,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (index == safeSelectedIndex) {
-                                tone.color
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            fontWeight = if (index == safeSelectedIndex) {
-                                FontWeight.Bold
-                            } else {
-                                FontWeight.Normal
-                            },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                leadingIcon = if (selectedKey == key) {
+                    {
+                        Icon(
+                            imageVector = Icons.Outlined.Check,
+                            contentDescription = null
                         )
                     }
+                } else {
+                    null
                 }
-            }
+            )
         }
-    }
-}
-
-private data class SpiceTone(
-    val color: Color,
-    val container: Color,
-    val icon: String
-)
-
-private fun spiceTone(index: Int, lastIndex: Int): SpiceTone {
-    val ratio = if (lastIndex <= 0) 0f else index.toFloat() / lastIndex.toFloat()
-
-    return when {
-        ratio <= 0f -> SpiceTone(
-            color = Color(0xFF78909C),
-            container = Color(0xFFECEFF1),
-            icon = "🥛"
-        )
-        ratio < 0.34f -> SpiceTone(
-            color = Color(0xFF2E7D32),
-            container = Color(0xFFE8F5E9),
-            icon = "🫑"
-        )
-        ratio < 0.67f -> SpiceTone(
-            color = Color(0xFFF57F17),
-            container = Color(0xFFFFF8E1),
-            icon = "🌶️"
-        )
-        ratio < 0.9f -> SpiceTone(
-            color = Color(0xFFEF6C00),
-            container = Color(0xFFFFF3E0),
-            icon = "🔥"
-        )
-        else -> SpiceTone(
-            color = Color(0xFFC62828),
-            container = Color(0xFFFFEBEE),
-            icon = "🌶️🔥"
-        )
-    }
-}
-
-private fun standardSpiceTone(index: Int, lastIndex: Int): SpiceTone {
-    val ratio = if (lastIndex <= 0) 0f else index.toFloat() / lastIndex.toFloat()
-
-    return when {
-        ratio <= 0f -> SpiceTone(
-            color = Color(0xFF2E7D32),
-            container = Color(0xFFE8F5E9),
-            icon = "\uD83C\uDF36\uFE0F"
-        )
-        ratio < 0.5f -> SpiceTone(
-            color = Color(0xFFF57F17),
-            container = Color(0xFFFFF8E1),
-            icon = "\uD83C\uDF36\uFE0F"
-        )
-        ratio < 0.85f -> SpiceTone(
-            color = Color(0xFFEF6C00),
-            container = Color(0xFFFFF3E0),
-            icon = "\uD83C\uDF36\uFE0F"
-        )
-        else -> SpiceTone(
-            color = Color(0xFFC62828),
-            container = Color(0xFFFFEBEE),
-            icon = "\uD83C\uDF36\uFE0F\uD83D\uDD25"
-        )
-    }
-}
-
-@Composable
-private fun defaultSpiceDescription(index: Int, lastIndex: Int): String {
-    val ratio = if (lastIndex <= 0) 0f else index.toFloat() / lastIndex.toFloat()
-
-    return when {
-        ratio <= 0f -> stringResource(R.string.spice_description_mild)
-        ratio < 0.5f -> stringResource(R.string.spice_description_medium)
-        ratio < 0.85f -> stringResource(R.string.spice_description_hot)
-        else -> stringResource(R.string.spice_description_very_hot)
     }
 }
 
@@ -764,17 +614,6 @@ private fun FoodItem.availableRemovableIngredientOptions(): List<CustomizationOp
 private fun FoodItem.availableSpiceLevelOptions(): List<CustomizationOption> {
     if (!hasSpiceLevelSelection()) return emptyList()
 
-    if (spiceLevelOptions.isNotEmpty()) return spiceLevelOptions
-
-    if (spiceLevels.isNotEmpty()) {
-        return spiceLevels.map { level ->
-            CustomizationOption(
-                id = level.toOptionKey(),
-                name = level
-            )
-        }
-    }
-
     return listOf(
         CustomizationOption(
             id = "mild",
@@ -790,11 +629,6 @@ private fun FoodItem.availableSpiceLevelOptions(): List<CustomizationOption> {
             id = "spicy",
             name = stringResource(R.string.spice_spicy),
             description = stringResource(R.string.spice_description_hot)
-        ),
-        CustomizationOption(
-            id = "extra-spicy",
-            name = stringResource(R.string.spice_very_spicy),
-            description = stringResource(R.string.spice_description_very_hot)
         )
     )
 }
@@ -808,4 +642,35 @@ private fun String.toOptionKey(): String {
         .replace(Regex("[^a-z0-9]+"), "-")
         .trim('-')
         .ifBlank { this }
+}
+
+private fun String.toSafeSpiceKey(): String {
+    return when (lowercase()) {
+        "mild", "doux" -> "mild"
+        "medium", "moyen", "normal" -> "medium"
+        "spicy", "piquant", "hot", "very-spicy", "very spicy", "extra-spicy" -> "spicy"
+        else -> this
+    }
+}
+
+private fun String.spiceDotCount(): Int {
+    return when (toSafeSpiceKey()) {
+        "mild" -> 1
+        "medium" -> 2
+        "spicy" -> 3
+        else -> 1
+    }
+}
+
+@Composable
+private fun SpiceDots(level: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        repeat(level.coerceIn(1, 3)) {
+            Surface(
+                modifier = Modifier.size(6.dp),
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.primary
+            ) {}
+        }
+    }
 }

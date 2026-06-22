@@ -31,7 +31,6 @@ import com.example.chezvous.presentation.checkout.CheckoutScreen
 import com.example.chezvous.presentation.delivery.DeliveryDashboardScreen
 import com.example.chezvous.presentation.home.AllRestaurantsScreen
 import com.example.chezvous.presentation.home.HomeScreen
-import com.example.chezvous.presentation.kitchen.KitchenDashboardScreen
 import com.example.chezvous.presentation.orders.OrderTrackingScreen
 import com.example.chezvous.presentation.orders.OrdersScreen
 import com.example.chezvous.presentation.partner.PartnerDashboardScreen
@@ -47,7 +46,6 @@ fun ChezVousNavHost() {
     val userRepository = remember { UserRepository() }
     var currentUserId by remember { mutableStateOf(firebaseAuth.currentUser?.uid.orEmpty()) }
     var currentRole by remember { mutableStateOf<String?>(null) }
-    var roleRedirectUserId by remember { mutableStateOf("") }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val cartItems by CartRepository.cartItems.collectAsState()
@@ -66,10 +64,6 @@ fun ChezVousNavHost() {
         ChezVousRoutes.DELIVERY_DASHBOARD,
         ChezVousRoutes.PROFILE
     )
-    val kitchenTopLevelRoutes = setOf(
-        ChezVousRoutes.KITCHEN_DASHBOARD,
-        ChezVousRoutes.PROFILE
-    )
     val currentRoleForUi = currentRole ?: UserRoles.CUSTOMER
     val roleHomeRoute = if (currentUserId.isNotBlank() && currentRole == null) {
         ChezVousRoutes.ROLE_LANDING
@@ -81,7 +75,6 @@ fun ChezVousNavHost() {
     } else {
         when {
             UserRoles.canUsePartnerDashboard(currentRoleForUi) -> managementTopLevelRoutes
-            UserRoles.canUseKitchenDashboard(currentRoleForUi) -> kitchenTopLevelRoutes
             UserRoles.canUseDriverDashboard(currentRoleForUi) -> driverTopLevelRoutes
             else -> customerTopLevelRoutes
         }
@@ -92,7 +85,6 @@ fun ChezVousNavHost() {
             currentUserId = auth.currentUser?.uid.orEmpty()
             if (auth.currentUser == null) {
                 currentRole = null
-                roleRedirectUserId = ""
             }
         }
         firebaseAuth.addAuthStateListener(listener)
@@ -109,36 +101,7 @@ fun ChezVousNavHost() {
         }
 
         userRepository.observeUser(currentUserId).collect { user ->
-            currentRole = user?.role ?: UserRoles.CUSTOMER
-        }
-    }
-
-    LaunchedEffect(currentUserId, currentRole, currentRoute) {
-        if (currentUserId.isBlank()) {
-            roleRedirectUserId = ""
-            return@LaunchedEffect
-        }
-
-        val role = currentRole ?: return@LaunchedEffect
-
-        if (
-            currentRoute == null ||
-            currentRoute == ChezVousRoutes.LOGIN ||
-            currentRoute == ChezVousRoutes.REGISTER ||
-            currentRoute == ChezVousRoutes.ROLE_LANDING ||
-            role == UserRoles.CUSTOMER ||
-            roleRedirectUserId == currentUserId ||
-            currentRoute == roleHomeRoute
-        ) {
-            return@LaunchedEffect
-        }
-
-        roleRedirectUserId = currentUserId
-        navController.navigate(roleHomeRoute) {
-            popUpTo(ChezVousRoutes.HOME) {
-                inclusive = true
-            }
-            launchSingleTop = true
+            currentRole = UserRoles.safeRole(user?.role)
         }
     }
 
@@ -235,7 +198,7 @@ fun ChezVousNavHost() {
             }
 
             composable(ChezVousRoutes.HOME) {
-                if (currentUserId.isNotBlank() && currentRole != UserRoles.CUSTOMER) {
+                if (!canUseCustomerArea(currentUserId, currentRole)) {
                     RoleLandingScreen(
                         currentUserId = currentUserId,
                         currentRole = currentRole,
@@ -275,17 +238,37 @@ fun ChezVousNavHost() {
             }
 
             composable(ChezVousRoutes.RESTAURANTS) {
-                AllRestaurantsScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    showBackButton = false,
-                    onRestaurantClick = { restaurantId ->
-                        navController.navigate(ChezVousRoutes.restaurantDetails(restaurantId)) {
-                            launchSingleTop = true
+                if (!canUseCustomerArea(currentUserId, currentRole)) {
+                    RoleLandingScreen(
+                        currentUserId = currentUserId,
+                        currentRole = currentRole,
+                        onLoggedOut = {
+                            navController.navigate(ChezVousRoutes.LOGIN) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onRoleResolved = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ChezVousRoutes.RESTAURANTS) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    AllRestaurantsScreen(
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        showBackButton = false,
+                        onRestaurantClick = { restaurantId ->
+                            navController.navigate(ChezVousRoutes.restaurantDetails(restaurantId)) {
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
             }
 
             composable(
@@ -296,63 +279,143 @@ fun ChezVousNavHost() {
                     }
                 )
             ) { backStackEntry ->
-                RestaurantDetailsScreen(
-                    restaurantId = backStackEntry.arguments
-                        ?.getString(ChezVousRoutes.RESTAURANT_ID_ARG)
-                        .orEmpty(),
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    onOpenCart = {
-                        navController.navigate(ChezVousRoutes.CART) {
-                            launchSingleTop = true
+                if (!canUseCustomerArea(currentUserId, currentRole)) {
+                    RoleLandingScreen(
+                        currentUserId = currentUserId,
+                        currentRole = currentRole,
+                        onLoggedOut = {
+                            navController.navigate(ChezVousRoutes.LOGIN) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onRoleResolved = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ChezVousRoutes.RESTAURANT_DETAILS) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    RestaurantDetailsScreen(
+                        restaurantId = backStackEntry.arguments
+                            ?.getString(ChezVousRoutes.RESTAURANT_ID_ARG)
+                            .orEmpty(),
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        onOpenCart = {
+                            navController.navigate(ChezVousRoutes.CART) {
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
             }
 
             composable(ChezVousRoutes.CART) {
-                CartScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    showBackButton = false,
-                    onCheckoutReady = {
-                        navController.navigate(ChezVousRoutes.CHECKOUT) {
-                            launchSingleTop = true
+                if (!canUseCustomerArea(currentUserId, currentRole)) {
+                    RoleLandingScreen(
+                        currentUserId = currentUserId,
+                        currentRole = currentRole,
+                        onLoggedOut = {
+                            navController.navigate(ChezVousRoutes.LOGIN) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onRoleResolved = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ChezVousRoutes.CART) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    CartScreen(
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        showBackButton = false,
+                        onCheckoutReady = {
+                            navController.navigate(ChezVousRoutes.CHECKOUT) {
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
             }
 
             composable(ChezVousRoutes.CHECKOUT) {
-                CheckoutScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    onOrderCreated = { orderId ->
-                        navController.navigate(ChezVousRoutes.orderTracking(orderId)) {
-                            popUpTo(ChezVousRoutes.CART) {
-                                inclusive = true
+                if (!canUseCustomerArea(currentUserId, currentRole)) {
+                    RoleLandingScreen(
+                        currentUserId = currentUserId,
+                        currentRole = currentRole,
+                        onLoggedOut = {
+                            navController.navigate(ChezVousRoutes.LOGIN) {
+                                launchSingleTop = true
                             }
-                            launchSingleTop = true
+                        },
+                        onRoleResolved = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ChezVousRoutes.CHECKOUT) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    CheckoutScreen(
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        onOrderCreated = { orderId ->
+                            navController.navigate(ChezVousRoutes.orderTracking(orderId)) {
+                                popUpTo(ChezVousRoutes.CART) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
             }
 
             composable(ChezVousRoutes.ORDERS) {
-                OrdersScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    showBackButton = false,
-                    onOrderClick = { orderId ->
-                        navController.navigate(ChezVousRoutes.orderTracking(orderId)) {
-                            launchSingleTop = true
+                if (!canUseCustomerArea(currentUserId, currentRole)) {
+                    RoleLandingScreen(
+                        currentUserId = currentUserId,
+                        currentRole = currentRole,
+                        onLoggedOut = {
+                            navController.navigate(ChezVousRoutes.LOGIN) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onRoleResolved = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ChezVousRoutes.ORDERS) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    OrdersScreen(
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        showBackButton = false,
+                        onOrderClick = { orderId ->
+                            navController.navigate(ChezVousRoutes.orderTracking(orderId)) {
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
             }
 
             composable(
@@ -363,41 +426,96 @@ fun ChezVousNavHost() {
                     }
                 )
             ) { backStackEntry ->
-                OrderTrackingScreen(
-                    orderId = backStackEntry.arguments
-                        ?.getString(ChezVousRoutes.ORDER_ID_ARG)
-                        .orEmpty(),
-                    onBack = {
-                        navController.popBackStack()
-                    }
-                )
+                if (!canUseCustomerArea(currentUserId, currentRole)) {
+                    RoleLandingScreen(
+                        currentUserId = currentUserId,
+                        currentRole = currentRole,
+                        onLoggedOut = {
+                            navController.navigate(ChezVousRoutes.LOGIN) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onRoleResolved = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ChezVousRoutes.ORDER_TRACKING) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                } else {
+                    OrderTrackingScreen(
+                        orderId = backStackEntry.arguments
+                            ?.getString(ChezVousRoutes.ORDER_ID_ARG)
+                            .orEmpty(),
+                        onBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
 
             composable(ChezVousRoutes.PARTNER_DASHBOARD) {
-                PartnerDashboardScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    showBackButton = false
-                )
+                if (currentUserId.isBlank() || currentRole == null ||
+                    !UserRoles.canUsePartnerDashboard(currentRole)
+                ) {
+                    RoleLandingScreen(
+                        currentUserId = currentUserId,
+                        currentRole = currentRole,
+                        onLoggedOut = {
+                            navController.navigate(ChezVousRoutes.LOGIN) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onRoleResolved = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ChezVousRoutes.PARTNER_DASHBOARD) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                } else {
+                    PartnerDashboardScreen(
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        showBackButton = false
+                    )
+                }
             }
 
             composable(ChezVousRoutes.DELIVERY_DASHBOARD) {
-                DeliveryDashboardScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    showBackButton = false
-                )
-            }
-
-            composable(ChezVousRoutes.KITCHEN_DASHBOARD) {
-                KitchenDashboardScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    showBackButton = false
-                )
+                if (currentUserId.isBlank() || currentRole == null ||
+                    !UserRoles.canUseDriverDashboard(currentRole)
+                ) {
+                    RoleLandingScreen(
+                        currentUserId = currentUserId,
+                        currentRole = currentRole,
+                        onLoggedOut = {
+                            navController.navigate(ChezVousRoutes.LOGIN) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onRoleResolved = { route ->
+                            navController.navigate(route) {
+                                popUpTo(ChezVousRoutes.DELIVERY_DASHBOARD) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                } else {
+                    DeliveryDashboardScreen(
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        showBackButton = false
+                    )
+                }
             }
 
             composable(ChezVousRoutes.PROFILE) {
@@ -449,8 +567,15 @@ private fun RoleLandingScreen(
 private fun roleHomeRouteFor(role: String?): String {
     return when {
         UserRoles.canUsePartnerDashboard(role) -> ChezVousRoutes.PARTNER_DASHBOARD
-        UserRoles.canUseKitchenDashboard(role) -> ChezVousRoutes.KITCHEN_DASHBOARD
         UserRoles.canUseDriverDashboard(role) -> ChezVousRoutes.DELIVERY_DASHBOARD
         else -> ChezVousRoutes.HOME
     }
+}
+
+private fun canUseCustomerArea(
+    currentUserId: String,
+    currentRole: String?
+): Boolean {
+    return currentUserId.isBlank() ||
+            (currentRole != null && UserRoles.canOrderAsCustomer(currentRole))
 }

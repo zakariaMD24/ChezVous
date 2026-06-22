@@ -131,7 +131,15 @@ private fun RestaurantInfoLine(restaurant: Restaurant) {
         Spacer(modifier = Modifier.width(ChezVousSpacing.xxs))
 
         Text(
-            text = restaurant.rating.toString(),
+            text = if (restaurant.ratingCount > 0) {
+                stringResource(
+                    R.string.restaurant_rating_with_count,
+                    restaurant.rating,
+                    restaurant.ratingCount
+                )
+            } else {
+                stringResource(R.string.restaurant_new_rating)
+            },
             style = MaterialTheme.typography.bodySmall
         )
 

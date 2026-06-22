@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.chezvous.data.model.Driver
 import com.example.chezvous.data.model.Order
 import com.example.chezvous.data.model.OrderStatus
+import com.example.chezvous.data.model.RestaurantReview
+import com.example.chezvous.data.repository.AuthRepository
 import com.example.chezvous.data.repository.DriverRepository
 import com.example.chezvous.data.repository.OrderRepository
+import com.example.chezvous.data.repository.RestaurantRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,16 +22,19 @@ data class OrderTrackingUiState(
     val driver: Driver? = null,
     val errorMessage: String? = null,
     val actionMessage: String? = null,
-    val isCancelling: Boolean = false
+    val isCancelling: Boolean = false,
+    val isReviewSaving: Boolean = false
 ) {
     val canCancel: Boolean
         get() = order?.status == OrderStatus.PENDING ||
-                order?.status == OrderStatus.CONFIRMED
+                order?.status == OrderStatus.ACCEPTED
 }
 
 class OrderTrackingViewModel : ViewModel() {
+    private val authRepository = AuthRepository()
     private val orderRepository = OrderRepository()
     private val driverRepository = DriverRepository()
+    private val restaurantRepository = RestaurantRepository()
     private var currentOrderId = ""
     private var orderJob: Job? = null
     private var driverJob: Job? = null
@@ -103,6 +109,46 @@ class OrderTrackingViewModel : ViewModel() {
 
     fun clearActionMessage() {
         _uiState.update { it.copy(actionMessage = null) }
+    }
+
+    fun submitReview(rating: Int, comment: String) {
+        val order = _uiState.value.order ?: return
+        val userId = authRepository.currentUserId().orEmpty()
+
+        if (order.status != OrderStatus.DELIVERED || userId.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "La note sera disponible apres livraison.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isReviewSaving = true, errorMessage = null, actionMessage = null) }
+
+            restaurantRepository.submitRestaurantReview(
+                RestaurantReview(
+                    orderId = order.id,
+                    restaurantId = order.restaurantId,
+                    userId = userId,
+                    rating = rating,
+                    comment = comment
+                )
+            )
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isReviewSaving = false,
+                            actionMessage = "Merci pour votre avis."
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isReviewSaving = false,
+                            errorMessage = error.message ?: "Impossible d'enregistrer votre avis."
+                        )
+                    }
+                }
+        }
     }
 
     private fun observeDriver(driverId: String) {

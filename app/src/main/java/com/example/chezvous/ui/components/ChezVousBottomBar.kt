@@ -37,20 +37,11 @@ fun ChezVousBottomBar(
         listOf(
             ChezVousBottomBarItem(
                 route = ChezVousRoutes.PARTNER_DASHBOARD,
-                label = stringResource(R.string.partner_space),
-                icon = Icons.Outlined.Restaurant
-            ),
-            ChezVousBottomBarItem(
-                route = ChezVousRoutes.PROFILE,
-                label = stringResource(R.string.nav_profile),
-                icon = Icons.Outlined.Person
-            )
-        )
-    } else if (UserRoles.canUseKitchenDashboard(role)) {
-        listOf(
-            ChezVousBottomBarItem(
-                route = ChezVousRoutes.KITCHEN_DASHBOARD,
-                label = stringResource(R.string.nav_kitchen),
+                label = if (UserRoles.hasGlobalRestaurantAccess(role)) {
+                    stringResource(R.string.admin_space)
+                } else {
+                    stringResource(R.string.partner_space)
+                },
                 icon = Icons.Outlined.Restaurant
             ),
             ChezVousBottomBarItem(

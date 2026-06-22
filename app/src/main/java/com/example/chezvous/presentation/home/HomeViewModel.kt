@@ -240,7 +240,7 @@ class HomeViewModel : ViewModel() {
             .filter { restaurant ->
                 restaurant.matchesSearch(query, matchingRestaurantIds) &&
                         restaurant.matchesCuisine(selectedCuisine) &&
-                        restaurant.rating >= state.minimumRating &&
+                        restaurant.reviewRating() >= state.minimumRating &&
                         (restaurant.maxDeliveryMinutes() ?: Int.MAX_VALUE) <= state.maxDeliveryMinutes &&
                         restaurant.minimumOrder <= state.maxMinimumOrder &&
                         (!state.onlyOpen || restaurant.isOpen)
@@ -326,11 +326,15 @@ private fun Restaurant.maxDeliveryMinutes(): Int? {
 private fun List<Restaurant>.sortedByOption(option: RestaurantSortOption): List<Restaurant> {
     return when (option) {
         RestaurantSortOption.RECOMMENDED -> this
-        RestaurantSortOption.TOP_RATED -> sortedByDescending { it.rating }
+        RestaurantSortOption.TOP_RATED -> sortedByDescending { it.reviewRating() }
         RestaurantSortOption.FASTEST_DELIVERY -> sortedBy { it.maxDeliveryMinutes() ?: Int.MAX_VALUE }
         RestaurantSortOption.LOWEST_MINIMUM_ORDER -> sortedBy { it.minimumOrder }
         RestaurantSortOption.NAME_A_Z -> sortedBy { it.name.lowercase() }
     }
+}
+
+private fun Restaurant.reviewRating(): Double {
+    return if (ratingCount > 0) rating else 0.0
 }
 
 private fun Double.formatOneDecimal(): String {

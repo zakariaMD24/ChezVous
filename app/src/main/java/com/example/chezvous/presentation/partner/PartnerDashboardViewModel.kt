@@ -42,7 +42,7 @@ data class PartnerDashboardUiState(
         
     val visibleUsers: List<User>
         get() = if (userSearchQuery.isBlank()) {
-            users.filter { it.role != UserRoles.CUSTOMER }
+            users.filter { UserRoles.safeRole(it.role) != UserRoles.CUSTOMER }
         } else {
             users.filter { 
                 it.email.contains(userSearchQuery, ignoreCase = true) || 
@@ -413,6 +413,146 @@ class PartnerDashboardViewModel : ViewModel() {
         )
     }
 
+    fun createWorkerInvitation(
+        fullName: String,
+        email: String,
+        phone: String,
+        role: String,
+        managedRestaurantIds: List<String>,
+        vehicleType: String
+    ) {
+        if (!UserRoles.hasGlobalRestaurantAccess(_uiState.value.role)) {
+            _uiState.update { it.copy(errorMessage = "Seul l'admin global peut ajouter un worker.") }
+            return
+        }
+
+        val cleanRole = role.takeIf { it in listOf(UserRoles.PARTNER, UserRoles.DRIVER, UserRoles.ADMIN) }
+            ?: UserRoles.PARTNER
+        val cleanRestaurantIds = if (cleanRole == UserRoles.PARTNER) {
+            managedRestaurantIds.cleanRestaurantIds()
+        } else {
+            emptyList()
+        }
+
+        if (fullName.trim().isBlank() || email.trim().isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Completez le nom et l'email du worker.") }
+            return
+        }
+
+        if (cleanRole == UserRoles.PARTNER && cleanRestaurantIds.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "Assignez au moins un restaurant au partenaire.") }
+            return
+        }
+
+        if (cleanRole == UserRoles.DRIVER && vehicleType.trim().isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Indiquez le vehicule du livreur.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, message = null, errorMessage = null) }
+
+            var linkedDriverId = ""
+            if (cleanRole == UserRoles.DRIVER) {
+                val driver = Driver(
+                    fullName = fullName.trim(),
+                    phone = phone.trim(),
+                    vehicleType = vehicleType.trim(),
+                    rating = 0.0,
+                    isAvailable = true
+                )
+                driverRepository.createDriver(driver)
+                    .onSuccess { linkedDriverId = it }
+                    .onFailure { error ->
+                        _uiState.update {
+                            it.copy(
+                                isSaving = false,
+                                errorMessage = error.message ?: "Impossible de creer la fiche livreur."
+                            )
+                        }
+                        return@launch
+                    }
+            }
+
+            userRepository.createWorkerInvitation(
+                fullName = fullName.trim(),
+                email = email.trim(),
+                phone = phone.trim(),
+                role = cleanRole,
+                managedRestaurantIds = cleanRestaurantIds,
+                driverId = linkedDriverId
+            )
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            message = "Worker ajoute. Il doit s'inscrire avec cet email."
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            errorMessage = error.message ?: "Impossible d'ajouter le worker."
+                        )
+                    }
+                }
+        }
+    }
+
+    fun createRestaurant(
+        name: String,
+        cuisineType: String,
+        imageUrl: String,
+        address: String,
+        deliveryTime: String,
+        isOpen: Boolean
+    ) {
+        if (!UserRoles.hasGlobalRestaurantAccess(_uiState.value.role)) {
+            _uiState.update { it.copy(errorMessage = "Seul l'admin global peut ajouter un restaurant.") }
+            return
+        }
+
+        if (name.trim().isBlank() || cuisineType.trim().isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Completez le nom et la categorie du restaurant.") }
+            return
+        }
+
+        val restaurant = Restaurant(
+            name = name.trim(),
+            cuisineType = cuisineType.trim(),
+            imageUrl = imageUrl.trim(),
+            address = address.trim(),
+            deliveryTime = deliveryTime.trim().ifBlank { "30-45 min" },
+            isOpen = isOpen,
+            rating = 0.0,
+            ratingCount = 0
+        )
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, message = null, errorMessage = null) }
+
+            restaurantRepository.createRestaurant(restaurant)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            message = "Restaurant ajoute."
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            errorMessage = error.message ?: "Impossible d'ajouter le restaurant."
+                        )
+                    }
+                }
+        }
+    }
+
     fun saveUserAccess(
         user: User,
         role: String,
@@ -502,7 +642,7 @@ class PartnerDashboardViewModel : ViewModel() {
 
         viewModelScope.launch {
             userRepository.observeUser(userId).collect { user ->
-                val role = user?.role ?: UserRoles.CUSTOMER
+                val role = UserRoles.safeRole(user?.role)
                 val managedRestaurantIds = user?.managedRestaurantIds.orEmpty().cleanRestaurantIds()
                 _uiState.update {
                     it.copy(
@@ -567,7 +707,11 @@ class PartnerDashboardViewModel : ViewModel() {
             .takeIf { restaurantId ->
                 visibleRestaurants.any { it.id == restaurantId }
             }
-            .orEmpty()
+            ?: visibleRestaurants
+                .singleOrNull()
+                ?.takeIf { !UserRoles.hasGlobalRestaurantAccess(state.role) }
+                ?.id
+            ?: ""
         val hasAuthorizedRole = UserRoles.canUsePartnerDashboard(state.role)
         val isAuthorized = hasAuthorizedRole &&
                 (UserRoles.hasGlobalRestaurantAccess(state.role) || visibleRestaurants.isNotEmpty())
@@ -673,18 +817,13 @@ private fun defaultSpiceLevelOptions(): List<CustomizationOption> {
         ),
         CustomizationOption(
             id = "medium",
-            name = "Normal",
+            name = "Moyen",
             description = "Equilibre, avec un peu de chaleur."
         ),
         CustomizationOption(
             id = "spicy",
             name = "Piquant",
             description = "Releve pour les amateurs d'epices."
-        ),
-        CustomizationOption(
-            id = "extra-spicy",
-            name = "Tres piquant",
-            description = "Fort, uniquement si le client aime vraiment le piquant."
         )
     )
 }
