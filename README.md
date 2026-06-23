@@ -392,45 +392,43 @@ Exemples à ajouter :
 
 ### Authentification
 
-![Login](docs/screenshots/login.png)
+![Login](docs/screenshots/Auth.jpeg)
 
 ### Accueil client
 
-![Customer Home](docs/screenshots/customer-home.png)
+![Customer Home](docs/screenshots/HomeScreen.jpeg)
 
 ### Détails restaurant
 
-![Restaurant Details](docs/screenshots/restaurant-details.png)
+![Restaurant Details](docs/screenshots/RestautDetails.jpeg)
 
 ### Personnalisation d'un plat
 
-![Food Customization](docs/screenshots/food-customization.png)
+![Food Customization](docs/screenshots/Personalis%C3%A9.jpeg)
 
 ### Panier
 
-![Cart](docs/screenshots/cart.png)
+![Cart](docs/screenshots/Panier.jpeg)
 
 ### Checkout / Paiement
 
-![Checkout](docs/screenshots/checkout.png)
+![Checkout](docs/screenshots/Paiment.jpeg)
 
 ### Suivi de commande
 
-![Order Tracking](docs/screenshots/order-tracking.png)
+![SuivilaCommande.jpeg](docs/screenshots/SuivilaCommande.jpeg)
+![Confirmation.jpeg](docs/screenshots/Confirmation.jpeg)
 
 ### Espace Partner
-
-![Partner Dashboard](docs/screenshots/partner-dashboard.png)
-
+![PartnerScreen.jpeg](docs/screenshots/PartnerScreen.jpeg)
+![PartnerModificationdeplan.jpeg](docs/screenshots/PartnerModificationdeplan.jpeg)
+![GestionDeCommandePartner.jpeg](docs/screenshots/GestionDeCommandePartner.jpeg)
 ### Espace Driver
-
-![Driver Dashboard](docs/screenshots/driver-dashboard.png)
+![Levreur.jpeg](docs/screenshots/Levreur.jpeg)
 
 ### Administration
 
-![Admin Dashboard](docs/screenshots/admin-dashboard.png)
-
----
+![Admin.jpeg](docs/screenshots/Admin.jpeg)
 
 ## Démonstration prévue
 
